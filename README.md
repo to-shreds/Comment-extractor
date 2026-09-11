@@ -14,7 +14,7 @@ The global navigation keeps the application focused while making the larger tool
 - **Compare & Combine** handles DOCX comparison, formatted-text comparison, and multi-reviewer commentary consolidation.
 - **Tools** contains Binder, Convert, Batch, Inspect, and Clean Word workflows.
 
-The original file is never overwritten automatically. Results are saved as new files with readable names such as `Benefit Plan (Edit 9.1.26).docx`.
+The original file is never overwritten automatically. Results are saved as new files with readable names such as `Benefit Plan (Edit 1.9.26).docx`.
 
 ## Current capabilities
 
@@ -120,7 +120,7 @@ npm run test:unit    # Core, PDF, privacy, filename, and Word v7 regressions
 npm run test:e2e     # 19 Playwright browser, privacy, offline, and responsive tests
 ```
 
-`npm run qa` remains the release contract. It performs a production build, the legacy regression suites, 31 Node unit tests, 4 dedicated privacy tests, and 19 Playwright Chromium specifications.
+`npm run qa` remains the release contract. On the current branch it performs a production build, the legacy regression suites, 34 Node unit tests, 4 dedicated privacy tests, and 19 Playwright Chromium specifications. Three of the Node tests cover the separately packaged Word add-in reviewer-name helper added after the v7.0.1 workbench release.
 
 Playwright requires its matching Chromium executable. In a new development environment, prepare it with `npx playwright install chromium` before running `npm run qa` or `npm run test:e2e`. The browser suite starts the generated `dist/` site on a loopback-only static QA server and does not change the browser-only production architecture.
 

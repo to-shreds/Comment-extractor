@@ -1,12 +1,15 @@
 # Comment Master v7.0.1 test report
 
-Date: 2026-09-01  
+Date: 2026-09-01
+
+Recovery audit: 2026-09-11
+
 Release contracts: `npm run qa` and `npm run build:pages`
 Local runtime used for the recorded run: Node.js 24.19.0, npm 11.9.0
 
 ## Release status
 
-Version 7.0.1 is a focused patch for local PDF.js support assets and direct branch-based GitHub Pages publishing. The production build and synchronized Pages runtime are deterministic. Both established regression scripts, all 31 Node unit tests, and all 4 dedicated privacy tests pass on the patch bytes. Playwright discovers all 19 Chromium specifications, including the JPEG 2000 OCR regression, but browser execution was not run locally. The dependency audit reports zero vulnerabilities. Live deployment and complete manual browser verification remain pending. This report does not substitute the successful v7.0.0 browser run for execution against changed v7.0.1 bytes.
+Version 7.0.1 is a focused patch for local PDF.js support assets and direct branch-based GitHub Pages publishing. The production build and synchronized Pages runtime are deterministic. Both established regression scripts, all 31 workbench Node unit tests, and all 4 dedicated privacy tests pass on the patch bytes. The current branch also passes three later Word add-in unit tests, for 34 Node unit tests total. Playwright discovers all 19 Chromium specifications, including the JPEG 2000 OCR regression, but browser execution was not run locally. The dependency audit reports zero vulnerabilities. The live deployment is verified against the committed release bytes. Complete file-based manual browser verification remains pending. This report does not substitute the successful v7.0.0 browser run for execution against changed v7.0.1 bytes.
 
 The immediately preceding v7.0.0 baseline at commit `f8fd44c36e1b25b9b00d347be664a5c79910570e` completed the full automated suite: both established scripts passed, all 29 Node unit tests passed, all 4 dedicated privacy tests passed, and all 19 Playwright Chromium specifications passed in 29.5 seconds. That baseline is relevant regression evidence, but the current patch must also pass its local release checks.
 
@@ -31,7 +34,7 @@ Result:
 | Production static build | Passed; v7.0.1 build `aeae40724ca0f1b88dd74903` |
 | Established export regression script | Passed |
 | Established Word comparison regression script | Passed |
-| Node unit tests | 31 passed, 0 failed, 0 skipped, 0 cancelled |
+| Node unit tests | 34 passed, 0 failed, 0 skipped, 0 cancelled on the current branch; 31 are part of the v7.0.1 workbench release and 3 cover the later Word add-in helper |
 | Dedicated privacy tests | 4 passed, 0 failed, 0 skipped, 0 cancelled |
 | Playwright browser specifications | 19 discovered; execution not run locally |
 | Dependency audit | 0 vulnerabilities |
@@ -39,6 +42,8 @@ Result:
 | Overall `npm run qa` | Not run because local Playwright Chromium is unavailable; all non-browser stages passed |
 
 The generated service worker, asset manifest, synchronized root runtime, and packaged PDF.js support-asset regression are confirmed for Comment Master v7.0.1.
+
+The 2026-09-11 recovery audit also downloaded the deployed `index.html`, `service-worker.js`, and `asset-manifest.json`. Each file is byte-for-byte identical to the committed root runtime. The live manifest reports v7.0.1 build `aeae40724ca0f1b88dd74903`.
 
 ## Automated coverage
 
@@ -207,7 +212,18 @@ GitHub Pages is configured to publish `main` and `/ (root)`. The repository has 
 
 ## Manual browser verification
 
-Status: **Pending**
+Status: **Partial**
+
+The 2026-09-11 recovery audit opened the public GitHub Pages deployment in cloud Chrome and confirmed:
+
+- the v7.0.1 Home screen loads with the expected Home, Word, PDF, Compare & Combine, and Tools navigation;
+- Home presents the local-processing promise, drag-and-drop target, primary Word and PDF actions, and progressive Binder, Convert, and Batch actions without horizontal overflow at the inspected desktop width;
+- Word, PDF, and Tools navigation each reveals the expected focused workspace;
+- Compare & Combine opens as a labeled dialog with separate Compare documents, Compare text, and Combine commentary tabs;
+- Compare Text produced a one-change minimal inline redline for the required `30` to `45` example while preserving the unchanged sentence text, and exposed Redline, Original, Revised, Side by side, previous/next change, and DOCX save controls;
+- no warning or error from the Comment Master origin appeared during those checks.
+
+The cloud browser's file-chooser bridge timed out when attaching the synthetic JPEG 2000 PDF, and the local environment could not download Playwright Chromium because the download host returned a 502 response followed by repeated timeouts. Therefore DOCX/PDF file workflows, OCR, redaction, conversion, binder, batch, offline, and Edge checks below remain pending on the v7.0.1 bytes. The synthetic OpenJPEG canvas unit regression still verifies that the reported blank scanned-page defect is fixed at the packaged decoder level.
 
 The release owner must replace this section with dated results for the final deployed or final production-equivalent artifact. At minimum, record current desktop Chrome and Edge results for:
 
@@ -257,4 +273,4 @@ The 19 Playwright browser specifications are part of `npm run qa`. The mandatory
 
 ## Conclusion
 
-The v7.0.0 baseline completed the entire automated suite, including all 19 Playwright specifications. On v7.0.1, the deterministic build and root synchronization pass; both established regression scripts, all 31 Node unit tests, and all 4 privacy tests pass, including the packaged OpenJPEG canvas regression; all 19 browser specifications are discovered; and the dependency audit reports zero vulnerabilities. Browser execution and complete manual deployment verification remain pending and must not be described as passed.
+The v7.0.0 baseline completed the entire automated suite, including all 19 Playwright specifications. On the current branch, the deterministic v7.0.1 build and root synchronization pass; both established regression scripts, all 34 Node unit tests, and all 4 privacy tests pass, including the packaged OpenJPEG canvas regression; all 19 browser specifications are discovered; the dependency audit reports zero vulnerabilities; and the live Pages entry, service worker, and manifest match the committed bytes. Browser execution and the remaining file-based manual matrix remain pending and must not be described as passed.
