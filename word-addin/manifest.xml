@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp
+  xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+  xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
+  xsi:type="TaskPaneApp">
+  <Id>336985fc-ae45-4d0d-b10a-9d46ed73fdc9</Id>
+  <Version>0.1.0.0</Version>
+  <ProviderName>Comment Master</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="Comment Master Names"/>
+  <Description DefaultValue="Change reviewer names on comments and tracked changes, then open a revised copy in Word."/>
+  <IconUrl DefaultValue="https://raw.githubusercontent.com/OfficeDev/Office-Add-in-samples/main/Samples/excel-shared-runtime-scenario/assets/icon-32.png"/>
+  <HighResolutionIconUrl DefaultValue="https://raw.githubusercontent.com/OfficeDev/Office-Add-in-samples/main/Samples/excel-shared-runtime-scenario/assets/icon-80.png"/>
+  <SupportUrl DefaultValue="https://github.com/to-shreds/Comment-extractor"/>
+  <Hosts>
+    <Host Name="Document"/>
+  </Hosts>
+  <Requirements>
+    <Sets DefaultMinVersion="1.1">
+      <Set Name="CompressedFile" MinVersion="1.1"/>
+      <Set Name="WordApi" MinVersion="1.3"/>
+    </Sets>
+  </Requirements>
+  <DefaultSettings>
+    <SourceLocation DefaultValue="https://to-shreds.github.io/Comment-extractor/word-addin/taskpane.html"/>
+  </DefaultSettings>
+  <Permissions>ReadWriteDocument</Permissions>
+
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Hosts>
+      <Host xsi:type="Document">
+        <DesktopFormFactor>
+          <FunctionFile resid="Commands.Url"/>
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            <OfficeTab id="TabHome">
+              <Group id="CommentMaster.ReviewerNames.Group">
+                <Label resid="CommentMaster.GroupLabel"/>
+                <Icon>
+                  <bt:Image size="16" resid="CommentMaster.Icon16"/>
+                  <bt:Image size="32" resid="CommentMaster.Icon32"/>
+                  <bt:Image size="80" resid="CommentMaster.Icon80"/>
+                </Icon>
+                <Control xsi:type="Button" id="CommentMaster.ReviewerNames.Button">
+                  <Label resid="CommentMaster.ButtonLabel"/>
+                  <Supertip>
+                    <Title resid="CommentMaster.ButtonLabel"/>
+                    <Description resid="CommentMaster.ButtonTooltip"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="CommentMaster.Icon16"/>
+                    <bt:Image size="32" resid="CommentMaster.Icon32"/>
+                    <bt:Image size="80" resid="CommentMaster.Icon80"/>
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <TaskpaneId>CommentMaster.ReviewerNames.Taskpane</TaskpaneId>
+                    <SourceLocation resid="CommentMaster.TaskpaneUrl"/>
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+    <Resources>
+      <bt:Images>
+        <bt:Image id="CommentMaster.Icon16" DefaultValue="https://raw.githubusercontent.com/OfficeDev/Office-Add-in-samples/main/Samples/excel-shared-runtime-scenario/assets/icon-16.png"/>
+        <bt:Image id="CommentMaster.Icon32" DefaultValue="https://raw.githubusercontent.com/OfficeDev/Office-Add-in-samples/main/Samples/excel-shared-runtime-scenario/assets/icon-32.png"/>
+        <bt:Image id="CommentMaster.Icon80" DefaultValue="https://raw.githubusercontent.com/OfficeDev/Office-Add-in-samples/main/Samples/excel-shared-runtime-scenario/assets/icon-80.png"/>
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="Commands.Url" DefaultValue="https://to-shreds.github.io/Comment-extractor/word-addin/commands.html"/>
+        <bt:Url id="CommentMaster.TaskpaneUrl" DefaultValue="https://to-shreds.github.io/Comment-extractor/word-addin/taskpane.html"/>
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="CommentMaster.GroupLabel" DefaultValue="Comment Master"/>
+        <bt:String id="CommentMaster.ButtonLabel" DefaultValue="Reviewer Names"/>
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="CommentMaster.ButtonTooltip" DefaultValue="Change reviewer names on comments and tracked changes and open a revised copy."/>
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>
