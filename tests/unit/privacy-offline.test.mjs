@@ -45,7 +45,7 @@ test('service worker caches only exact application assets', async () => {
 
 test('built manifest resolves every exact offline asset and contains no source archive', async () => {
   const manifest = JSON.parse(await readFile(path.join(root, 'dist/asset-manifest.json'), 'utf8'));
-  assert.equal(manifest.version, '7.0.1');
+  assert.equal(manifest.version, '7.1.0');
   assert.ok(manifest.buildId.length >= 20);
   assert.equal(manifest.files['./asset-manifest.json'], undefined, 'the manifest cannot contain a stale or self-referential digest');
   for (const asset of [...manifest.coreAssets, ...Object.values(manifest.optionalAssets).flat()]) {

@@ -49,7 +49,7 @@ async function openShell(page) {
   });
   await page.goto('/');
   await page.waitForFunction(() => (
-    window.CommentMasterWorkbench?.version === '7.0.1'
+    window.CommentMasterWorkbench?.version === '7.1.0'
     && typeof window.CommentMasterWord?.openFile === 'function'
   ));
   await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
@@ -191,43 +191,42 @@ async function createDocx(bodyText, options = {}) {
 }
 
 test.describe('home and navigation', () => {
-  test('desktop home makes the main workspaces and local-processing promise clear', async ({ page }) => {
+  test('desktop home presents one obvious file-first workflow', async ({ page }) => {
     await openShell(page);
 
-    await expect(page.getByRole('heading', { name: 'Your documents, handled locally.' })).toBeVisible();
-    await expect(page.locator('#home-drop-zone')).toContainText('Drop documents here');
-    await expect(page.locator('.home-card.primary')).toHaveCount(2);
-    await expect(page.getByRole('heading', { name: 'Review & Edit' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Open & Work' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Open a document. We’ll take it from there.' })).toBeVisible();
+    await expect(page.locator('#home-drop-zone')).toContainText('Drop files here');
+    await expect(page.getByRole('button', { name: 'Choose files' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Files stay on this device' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Compare documents' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Create Binder' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Compare / Combine' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'More Tools' })).toBeVisible();
+    await expect(page.locator('.home-card')).toHaveCount(0);
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
   });
 
-  test('global route navigation reveals one focused destination at a time', async ({ page }) => {
+  test('the More menu keeps secondary destinations out of the main workflow', async ({ page }) => {
     await openShell(page);
+    const toggle = page.locator('#nav-toggle');
     const navigation = page.locator('#global-navigation');
 
-    await navigation.getByRole('button', { name: 'Word', exact: true }).click();
-    await expect(page.locator('body')).toHaveAttribute('data-route', 'word');
-    await expect(page.locator('#landing')).toBeVisible();
-    await expect(page.locator('#workspace')).toBeHidden();
+    await expect(navigation).toBeHidden();
+    await toggle.click();
+    await expect(navigation).toBeVisible();
 
-    await navigation.getByRole('button', { name: 'PDF', exact: true }).click();
-    await expect(page.locator('body')).toHaveAttribute('data-route', 'pdf');
-    await expect(page.locator('#pdf-empty')).toBeVisible();
-
-    await navigation.getByRole('button', { name: 'Tools', exact: true }).click();
+    await navigation.getByRole('button', { name: 'More Tools', exact: true }).click();
     await expect(page.locator('body')).toHaveAttribute('data-route', 'tools');
     await expect(page.locator('#tools-workspace')).toBeVisible();
     await expect(page.locator('[data-tool-pane="binder"]')).toBeVisible();
 
+    await toggle.click();
     await navigation.getByRole('button', { name: 'Home', exact: true }).click();
     await expect(page.locator('#home')).toBeVisible();
-    await expect(navigation.getByRole('button', { name: 'Home', exact: true })).toHaveAttribute('aria-current', 'page');
+
+    await toggle.click();
+    await navigation.getByRole('button', { name: 'Compare & Combine', exact: true }).click();
+    await expect(page.locator('#compare-dialog')).toHaveAttribute('open', '');
   });
 
   test('file staging names every file and offers contextual next steps', async ({ page }) => {
@@ -251,7 +250,7 @@ test.describe('home and navigation', () => {
 test.describe('mobile home', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test('mobile home remains single-column and navigation opens on demand', async ({ page }) => {
+  test('mobile home stays focused and navigation opens on demand', async ({ page }) => {
     await openShell(page);
 
     const toggle = page.locator('#nav-toggle');
@@ -263,15 +262,8 @@ test.describe('mobile home', () => {
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     await expect(navigation).toBeVisible();
-
-    const [wordCard, pdfCard] = await Promise.all([
-      page.locator('.home-card.primary').nth(0).boundingBox(),
-      page.locator('.home-card.primary').nth(1).boundingBox()
-    ]);
-    expect(wordCard).not.toBeNull();
-    expect(pdfCard).not.toBeNull();
-    expect(Math.abs(wordCard.x - pdfCard.x)).toBeLessThanOrEqual(1);
-    expect(pdfCard.y).toBeGreaterThan(wordCard.y + wordCard.height - 1);
+    await expect(page.locator('#home-drop-zone')).toBeVisible();
+    await expect(page.locator('.home-shortcuts')).toBeVisible();
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
@@ -282,7 +274,6 @@ test.describe('document workspaces', () => {
   test('generated DOCX opens in the preserved Word overview and survives route changes', async ({ page }) => {
     await openShell(page);
     await page.locator('#workbench-file-input').setInputFiles(fixtures.originalDocx);
-    await page.locator('[data-suggestion="review-word"]').click();
 
     await expect(page.locator('#workspace')).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('body')).toHaveAttribute('data-route', 'word');
@@ -293,10 +284,13 @@ test.describe('document workspaces', () => {
     await expect(page.locator('#file-pill')).toContainText(fixtures.originalDocx.name);
 
     const navigation = page.locator('#global-navigation');
-    await navigation.getByRole('button', { name: 'PDF', exact: true }).click();
-    await expect(page.locator('#pdf-empty')).toBeVisible();
-    await navigation.getByRole('button', { name: 'Word', exact: true }).click();
+    await page.locator('#nav-toggle').click();
+    await expect(navigation.getByRole('button', { name: 'Current Word document', exact: true })).toBeVisible();
+    await navigation.getByRole('button', { name: 'More Tools', exact: true }).click();
+    await expect(page.locator('#tools-workspace')).toBeVisible();
 
+    await page.locator('#nav-toggle').click();
+    await navigation.getByRole('button', { name: 'Current Word document', exact: true }).click();
     await expect(page.locator('#workspace')).toBeVisible();
     await expect(page.locator('#overview-filename')).toHaveText(fixtures.originalDocx.name);
     await expect(page.locator('[data-tab="overview"]')).toHaveClass(/active/);
@@ -305,7 +299,6 @@ test.describe('document workspaces', () => {
   test('generated PDF renders, searches, reorders pages, and summarizes export state', async ({ page }) => {
     await openShell(page);
     await page.locator('#workbench-file-input').setInputFiles(fixtures.orderedPdf);
-    await page.locator('[data-suggestion="open-pdf"]').click();
 
     await expect(page.locator('#pdf-loaded')).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('#pdf-title')).toHaveText(fixtures.orderedPdf.name);
@@ -379,8 +372,11 @@ test.describe('document workspaces', () => {
   test('staged DOCX is handed directly to Create Clean Copy', async ({ page }) => {
     await openShell(page);
     await page.locator('#workbench-file-input').setInputFiles(fixtures.originalDocx);
-    await expect(page.locator('[data-suggestion="clean-word"]')).toBeVisible();
-    await page.locator('[data-suggestion="clean-word"]').click();
+    await expect(page.locator('#workspace')).toBeVisible({ timeout: 30_000 });
+    await page.locator('#nav-toggle').click();
+    await page.locator('#global-navigation').getByRole('button', { name: 'More Tools', exact: true }).click();
+    await page.locator('[data-tool-tab="clean-word"]').click();
+    await page.locator('[data-wb-action="clean-word-current"]').click();
 
     await expect(page.locator('body')).toHaveAttribute('data-route', 'tools');
     await expect(page.locator('[data-tool-pane="clean-word"]')).toBeVisible();
@@ -395,7 +391,6 @@ test.describe('generated output smoke flows', () => {
     await openShell(page);
 
     await page.locator('#workbench-file-input').setInputFiles(fixtures.jpxScanPdf);
-    await page.locator('[data-suggestion="open-pdf"]').click();
     await expect(page.locator('#pdf-loaded')).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('#pdf-scan-suggestion')).toBeVisible();
     const beforeOcr = await canvasColorSignature(page);
@@ -425,7 +420,6 @@ test.describe('generated output smoke flows', () => {
     test.setTimeout(120_000);
     await openShell(page);
     await page.locator('#workbench-file-input').setInputFiles(fixtures.orderedPdf);
-    await page.locator('[data-suggestion="open-pdf"]').click();
     await expect(page.locator('#pdf-loaded')).toBeVisible({ timeout: 30_000 });
 
     await page.locator('[data-pdf-tab="redact"]').click();
@@ -451,9 +445,9 @@ test.describe('generated output smoke flows', () => {
   test('maximum PDF sanitization downloads a passive flattened artifact', async ({ page }) => {
     await openShell(page);
     await page.locator('#workbench-file-input').setInputFiles(fixtures.activePdf);
-    await page.locator('[data-suggestion="open-pdf"]').click();
     await expect(page.locator('#pdf-loaded')).toBeVisible({ timeout: 30_000 });
 
+    await page.locator('#toggle-pdf-more').click();
     await page.locator('[data-pdf-tab="clean"]').click();
     await page.locator('#sanitize-preset').selectOption('maximum');
     await expect(page.locator('#sanitize-form-values')).toBeChecked();
@@ -544,7 +538,11 @@ test.describe('generated output smoke flows', () => {
   test('Clean Word downloads a package with accepted changes and removed review data', async ({ page }) => {
     await openShell(page);
     await page.locator('#workbench-file-input').setInputFiles(fixtures.originalDocx);
-    await page.locator('[data-suggestion="clean-word"]').click();
+    await expect(page.locator('#workspace')).toBeVisible({ timeout: 30_000 });
+    await page.locator('#nav-toggle').click();
+    await page.locator('#global-navigation').getByRole('button', { name: 'More Tools', exact: true }).click();
+    await page.locator('[data-tool-tab="clean-word"]').click();
+    await page.locator('[data-wb-action="clean-word-current"]').click();
     await expect(page.locator('#clean-word-preview')).toContainText('Planned cleanup');
     await page.locator('[data-wb-action="clean-word-run"]').click();
     await expect(page.locator('#result-dialog')).toHaveAttribute('open', '', { timeout: 30_000 });
@@ -579,13 +577,12 @@ test.describe('privacy and offline behavior', () => {
     });
 
     await page.locator('#workbench-file-input').setInputFiles(fixtures.privacyDocx);
-    await page.locator('[data-suggestion="review-word"]').click();
     await expect(page.locator('#workspace')).toBeVisible({ timeout: 30_000 });
+    await page.locator('#toggle-advanced').click();
     await page.locator('[data-tab="relationships"]').click();
     await expect(page.locator('#rel-body')).toContainText(CANARY_URL);
 
     await page.locator('#workbench-file-input').setInputFiles(fixtures.activePdf);
-    await page.locator('[data-suggestion="open-pdf"]').click();
     await expect(page.locator('#pdf-page-accessible-text')).toContainText('Synthetic form', { timeout: 30_000 });
     await page.waitForTimeout(300);
 
@@ -643,7 +640,7 @@ test.describe('privacy and offline behavior', () => {
     if (!await page.evaluate(() => Boolean(navigator.serviceWorker.controller))) {
       await page.reload();
       await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
-      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.0.1');
+      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.1.0');
     }
 
     const cacheReport = await page.evaluate(async () => {
@@ -674,9 +671,9 @@ test.describe('privacy and offline behavior', () => {
     await context.setOffline(true);
     try {
       await page.reload({ waitUntil: 'domcontentloaded' });
-      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.0.1');
+      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.1.0');
       await expect(page.locator('#home')).toBeVisible();
-      await expect(page.getByRole('heading', { name: 'Your documents, handled locally.' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Open a document. We’ll take it from there.' })).toBeVisible();
     } finally {
       await context.setOffline(false);
     }

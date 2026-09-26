@@ -1,20 +1,21 @@
 # Comment Master
 
-Comment Master v7.0.1 is a private, browser-local document workbench for Word review, PDF work, document comparison, conversion, binders, cleanup, inspection, and batch processing.
+Comment Master v7.1.0 is a private, browser-local document workbench for Word review, PDF work, document comparison, conversion, binders, cleanup, inspection, and batch processing.
 
 The application is a static site. It does not require an installer, a local server, a browser extension, a cloud document-processing service, or a third-party account. Documents are processed in the browser and are not uploaded by Comment Master.
 
-## Workspaces
+## Interface and workflow
 
-The global navigation keeps the application focused while making the larger toolset discoverable:
+The v7.1 interface is file-first:
 
-- **Home** accepts one or many files and suggests an appropriate next task.
-- **Word** preserves the established Overview-first DOCX review and editing workflow.
-- **PDF** provides a viewer plus page, OCR, redaction, cleanup, form, and export tools.
-- **Compare & Combine** handles DOCX comparison, formatted-text comparison, and multi-reviewer commentary consolidation.
-- **Tools** contains Binder, Convert, Batch, Inspect, and Clean Word workflows.
+- **Open or drop files** is the primary entry point. A single DOCX or PDF opens directly in the correct workspace.
+- **Multiple files** stay on Home long enough to offer contextual next steps such as comparison, commentary consolidation, binder creation, conversion, and batch work.
+- **Compare / Combine** remains directly available from Home and the compact More menu.
+- **More Tools** contains Binder, Convert, Batch, Inspect, and Clean Word workflows.
+- **Word** keeps Overview, Review, Quick Edits, and Export visible while moving specialist views behind More.
+- **PDF** keeps View & Search, Pages, OCR, Redact, and Export visible while moving Clean & Inspect and Forms behind More.
 
-The original file is never overwritten automatically. Results are saved as new files with readable names such as `Benefit Plan (Edit 1.9.26).docx`.
+The capability set is intentionally preserved. The simplification changes navigation and progressive disclosure rather than removing processing features.
 
 ## Current capabilities
 

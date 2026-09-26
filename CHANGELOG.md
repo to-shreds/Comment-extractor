@@ -1,5 +1,15 @@
 # Changelog
 
+## 7.1.0 - 2026-09-26
+
+- Reworked the shell around a file-first workflow: opening one DOCX or PDF now goes directly to its workspace.
+- Replaced the persistent Home / Word / PDF / Compare / Tools navigation with a compact More menu containing Home, Compare & Combine, and More Tools.
+- Reduced the Home screen to one primary drop/open surface plus Compare / Combine and More Tools shortcuts.
+- Simplified visible Word tabs to Overview, Review, Quick Edits, and Export, with specialist views preserved behind More.
+- Simplified visible PDF tabs to View & Search, Pages, OCR, Redact, and Export, with Clean & Inspect and Forms preserved behind More.
+- Added a PDF export action to the header and removed the duplicate persistent Compare button.
+- Preserved all existing processing engines and specialist workflows.
+
 All notable user-facing and developer-facing changes are recorded here.
 
 ## 7.0.1 - 2026-09-01

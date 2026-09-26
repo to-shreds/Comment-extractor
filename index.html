@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#243f77">
   <meta name="color-scheme" content="light">
   <link rel="manifest" href="manifest.webmanifest">
-  <title>Comment Master v7.0.1</title>
+  <title>Comment Master v7.1.0</title>
   <style>
 :root {
   color-scheme: light;
@@ -656,7 +656,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
 (function () {
   'use strict';
 
-  const VERSION = '7.0.1';
+  const VERSION = '7.1.0';
   const WML_TRANSITIONAL = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
   const WML_STRICT = 'http://purl.oclc.org/ooxml/wordprocessingml/main';
   const WML_NAMESPACES = new Set([WML_TRANSITIONAL, WML_STRICT]);
@@ -1996,10 +1996,10 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
   function toggleAdvancedTabs(force) {
     if (!ui.advancedTabs || !ui.toggleAdvanced) return;
     const open = typeof force === 'boolean' ? force : ui.advancedTabs.hidden;
-    if (!open && ['parts', 'forensics', 'ghost', 'regex', 'meta'].includes(state.tab)) switchTab('overview');
+    if (!open && ['comments', 'revisions', 'relationships', 'parts', 'forensics', 'ghost', 'regex', 'meta'].includes(state.tab)) switchTab('overview');
     ui.advancedTabs.hidden = !open;
     ui.toggleAdvanced.setAttribute('aria-expanded', String(open));
-    ui.toggleAdvanced.textContent = open ? 'Hide Advanced' : 'Advanced Tools';
+    ui.toggleAdvanced.textContent = open ? 'Hide More' : 'More';
   }
 
   function modeItems() {
@@ -4636,27 +4636,29 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     <div class="brand-mark" aria-hidden="true">CM</div>
     <div>
       <h1>Comment Master</h1>
-      <p>Private document workbench <span class="version">v7.0.1</span></p>
+      <p>Private document workbench <span class="version">v7.1.0</span></p>
     </div>
   </div>
-  <button id="nav-toggle" class="btn btn-light nav-toggle" data-wb-action="toggle-navigation" type="button" aria-expanded="false" aria-controls="global-navigation">Menu</button>
-  <nav id="global-navigation" class="global-nav" aria-label="Main navigation">
-    <button data-route-target="home" type="button" aria-current="page">Home</button>
-    <button data-route-target="word" type="button">Word</button>
-    <button data-route-target="pdf" type="button">PDF</button>
-    <button data-wb-action="open-compare" type="button">Compare &amp; Combine</button>
-    <button data-route-target="tools" type="button">Tools</button>
-  </nav>
   <div class="header-actions">
     <button id="privacy-pill" class="privacy-pill" data-wb-action="privacy" type="button" title="Files stay on this device">Local processing</button>
     <span id="file-pill" class="file-pill" hidden>No document</span>
-    <button class="btn compare-launch" data-action="openCompare" type="button">Compare</button>
     <button class="btn btn-light" data-wb-action="open-files" type="button">Open files</button>
     <span class="header-word-actions" data-route-actions="word" hidden>
       <button class="btn btn-light requires-file" data-action="undo" id="btn-undo" type="button" disabled>Undo</button>
       <button class="btn btn-primary requires-file" data-action="save" type="button" disabled>Export DOCX</button>
     </span>
+    <span class="header-pdf-actions" data-route-actions="pdf" hidden>
+      <button class="btn btn-primary" data-wb-action="export-pdf" type="button">Export PDF</button>
+    </span>
   </div>
+  <button id="nav-toggle" class="btn btn-light nav-toggle" data-wb-action="toggle-navigation" type="button" aria-expanded="false" aria-controls="global-navigation">More</button>
+  <nav id="global-navigation" class="global-nav" aria-label="More options">
+    <button data-route-target="home" type="button" aria-current="page">Home</button>
+    <button id="current-word-route" data-route-target="word" type="button" hidden>Current Word document</button>
+    <button id="current-pdf-route" data-route-target="pdf" type="button" hidden>Current PDF</button>
+    <button data-wb-action="open-compare" type="button">Compare &amp; Combine</button>
+    <button data-route-target="tools" type="button">More Tools</button>
+  </nav>
 </header>
 
 <div id="busy-overlay" class="busy-overlay" hidden aria-hidden="true">
@@ -4749,16 +4751,16 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
 
   <section id="home" class="home-view route-view" data-route-view="home">
     <div class="home-intro">
-      <div><h2>Your documents, handled locally.</h2><p>Review Word files, work with PDFs, compare versions, create clean copies, convert common formats, and build binders without uploading document contents.</p></div>
+      <div><h2>Open a document. We’ll take it from there.</h2><p>Drop or choose files. A single Word document or PDF opens directly in the right workspace. With several files, Comment Master suggests the useful next steps.</p></div>
       <button class="privacy-pill local-callout" data-wb-action="privacy" type="button">Files stay on this device</button>
     </div>
 
     <div id="home-drop-zone" class="home-drop" aria-describedby="home-drop-help">
       <div class="home-drop-copy">
         <div class="home-drop-mark" aria-hidden="true">FILES</div>
-        <div><h3>Drop documents here</h3><p id="home-drop-help">Choose one file for a focused workspace, or several for comparison, binder, and batch tools.</p></div>
+        <div><h3>Drop files here</h3><p id="home-drop-help">Open one file and start working, or choose several for comparison, commentary consolidation, binders, conversion, or batch work.</p></div>
       </div>
-      <div class="home-drop-actions"><button class="btn btn-primary" data-wb-action="open-files" type="button">Choose files</button><button class="btn btn-light" data-wb-action="open-word-file" type="button">Open Word file</button></div>
+      <div class="home-drop-actions"><button class="btn btn-primary" data-wb-action="open-files" type="button">Choose files</button></div>
     </div>
 
     <section id="home-selection" class="home-selection" hidden aria-labelledby="home-selection-title">
@@ -4767,21 +4769,9 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
       <div id="suggestion-actions" class="suggestion-actions"></div>
     </section>
 
-    <div class="home-workspaces">
-      <article class="home-card primary">
-        <p class="home-card-kicker">Word</p><h3>Review &amp; Edit</h3><p>Inspect comments and tracked changes, update authors and dates, run careful edits, and export a faithful DOCX.</p>
-        <ul><li>Overview-first document review</li><li>Create clean copies</li><li>Inspect hidden and review content</li></ul>
-        <div class="button-row"><button class="btn btn-primary" data-wb-action="open-word-file" type="button">Open Word document</button><button class="btn btn-light" data-wb-action="clean-word" type="button">Create Clean Copy</button></div>
-      </article>
-      <article class="home-card primary">
-        <p class="home-card-kicker">PDF</p><h3>Open &amp; Work</h3><p>Read, search, organize, OCR, securely redact, sanitize, fill forms, and export a new working copy.</p>
-        <ul><li>Page tools and local OCR</li><li>Permanent raster redaction</li><li>Health check and sharing cleanup</li></ul>
-        <div class="button-row"><button class="btn btn-primary" data-wb-action="open-pdf-file" type="button">Open PDF</button><button class="btn btn-light" data-wb-action="choose-task" data-task="ocr" type="button">Make Searchable</button></div>
-      </article>
-      <article class="home-card home-tool-card"><p class="home-card-kicker">Compare &amp; Combine</p><h3>Versions and reviewers</h3><p>Compare DOCX files or formatted text, and consolidate commentary from several reviewers.</p><div class="button-row"><button class="btn btn-light" data-wb-action="open-compare" type="button">Compare documents</button></div></article>
-      <article class="home-card home-tool-card"><p class="home-card-kicker">Binder</p><h3>Create one PDF</h3><p>Arrange mixed local files, add dividers and a table of contents, and create a single binder.</p><div class="button-row"><button class="btn btn-light" data-wb-action="choose-task" data-task="binder" type="button">Create Binder</button></div></article>
-      <article class="home-card home-tool-card"><p class="home-card-kicker">Convert &amp; Clean</p><h3>Prepare a useful copy</h3><p>Convert common files, remove metadata and active content, or inspect before external sharing.</p><div class="button-row"><button class="btn btn-light" data-wb-action="choose-task" data-task="convert" type="button">Convert files</button></div></article>
-      <article class="home-card home-tool-card"><p class="home-card-kicker">Batch</p><h3>Process many files</h3><p>Apply a compatible operation to a local queue, monitor progress, and download individual or ZIP results.</p><div class="button-row"><button class="btn btn-light" data-wb-action="choose-task" data-task="batch" type="button">Batch Tools</button></div></article>
+    <div class="home-shortcuts" aria-label="Other ways to start">
+      <div><strong>Need something else?</strong><span>Comparison and specialist utilities stay available without crowding the main workflow.</span></div>
+      <div class="button-row"><button class="btn btn-light" data-wb-action="open-compare" type="button">Compare / Combine</button><button class="btn btn-light" data-route-target="tools" type="button">More Tools</button></div>
     </div>
   </section>
 
@@ -4803,20 +4793,20 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
   <div id="error-log" class="error-log" role="alert" hidden></div>
 
   <section id="workspace" class="route-view" data-route-view="word" hidden>
-    <nav id="tabs" class="tabs" aria-label="Comment Master sections">
+    <nav id="tabs" class="tabs" aria-label="Word document workspace">
       <button class="tab-btn active" data-tab="overview" type="button">Overview</button>
-      <button class="tab-btn" data-tab="all" type="button">Review Activity</button>
-      <button class="tab-btn" data-tab="comments" type="button">Comments</button>
-      <button class="tab-btn" data-tab="revisions" type="button">Tracked Changes</button>
+      <button class="tab-btn" data-tab="all" type="button">Review</button>
       <button class="tab-btn" data-tab="quick" type="button">Quick Edits</button>
-      <button class="tab-btn" data-tab="relationships" type="button">Links</button>
       <button class="tab-btn tab-export" data-tab="export" type="button">Export</button>
-      <button id="toggle-advanced" class="tab-btn tab-more" data-action="toggleAdvanced" type="button" aria-expanded="false" aria-controls="advanced-tabs">Advanced Tools</button>
+      <button id="toggle-advanced" class="tab-btn tab-more" data-action="toggleAdvanced" type="button" aria-expanded="false" aria-controls="advanced-tabs">More</button>
       <span id="advanced-tabs" class="advanced-tabs" hidden>
+        <button class="tab-btn" data-tab="comments" type="button">Comments</button>
+        <button class="tab-btn" data-tab="revisions" type="button">Tracked Changes</button>
+        <button class="tab-btn" data-tab="relationships" type="button">Links</button>
+        <button class="tab-btn" data-tab="regex" type="button">Find &amp; Replace</button>
+        <button class="tab-btn" data-tab="ghost" type="button">Ghost Writer</button>
         <button class="tab-btn" data-tab="parts" type="button">Parts</button>
         <button class="tab-btn" data-tab="forensics" type="button">Forensics</button>
-        <button class="tab-btn" data-tab="ghost" type="button">Ghost Writer</button>
-        <button class="tab-btn" data-tab="regex" type="button">Find & Replace</button>
         <button class="tab-btn" data-tab="meta" type="button">Metadata</button>
       </span>
     </nav>
@@ -5011,13 +5001,16 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     <div id="pdf-loaded" hidden>
       <div class="route-heading"><div><p class="eyebrow">PDF workspace</p><h2 id="pdf-title">PDF ready</h2><p id="pdf-summary">Working copy loaded. The original file remains untouched.</p></div><div class="route-heading-actions"><span id="pdf-file-pill" class="route-file-pill"></span><button class="btn btn-light" data-wb-action="open-pdf-file" type="button">Open another</button><button class="btn btn-primary" data-wb-action="export-pdf" type="button">Export PDF</button></div></div>
       <nav class="pdf-tabs" aria-label="PDF tools">
-        <button class="pdf-tab active" data-pdf-tab="review" type="button">Review</button>
+        <button class="pdf-tab active" data-pdf-tab="review" type="button">View &amp; Search</button>
         <button class="pdf-tab" data-pdf-tab="pages" type="button">Pages</button>
         <button class="pdf-tab" data-pdf-tab="ocr" type="button">OCR</button>
         <button class="pdf-tab" data-pdf-tab="redact" type="button">Redact</button>
-        <button class="pdf-tab" data-pdf-tab="clean" type="button">Clean &amp; Inspect</button>
-        <button class="pdf-tab" data-pdf-tab="forms" type="button">Forms</button>
         <button class="pdf-tab tab-export" data-pdf-tab="export" type="button">Export</button>
+        <button id="toggle-pdf-more" class="pdf-tab pdf-more-toggle" data-wb-action="toggle-pdf-more" type="button" aria-expanded="false" aria-controls="pdf-more-tabs">More</button>
+        <span id="pdf-more-tabs" class="pdf-more-tabs" hidden>
+          <button class="pdf-tab" data-pdf-tab="clean" type="button">Clean &amp; Inspect</button>
+          <button class="pdf-tab" data-pdf-tab="forms" type="button">Forms</button>
+        </span>
       </nav>
       <div class="pdf-shell">
         <aside id="pdf-thumbnails" class="pdf-thumbnails" aria-label="Page thumbnails"></aside>
@@ -5098,7 +5091,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
   </section>
 
   <section id="tools-workspace" class="route-view" data-route-view="tools" hidden>
-    <div class="route-heading"><div><p class="eyebrow">Document tools</p><h2>Convert, combine, clean, and inspect</h2><p>Choose a focused workflow. Files remain in memory for the current task and are not archived.</p></div><div class="route-heading-actions"><button class="btn btn-light" data-wb-action="clear-workspace" type="button">Clear Local Workspace</button></div></div>
+    <div class="route-heading"><div><p class="eyebrow">More tools</p><h2>Specialist document tools</h2><p>Binder, conversion, batch processing, inspection, and clean-copy workflows live here when you need them.</p></div><div class="route-heading-actions"><button class="btn btn-light" data-route-target="home" type="button">Home</button><button class="btn btn-light" data-wb-action="clear-workspace" type="button">Clear Local Workspace</button></div></div>
     <nav class="tool-tabs" aria-label="Document tools"><button class="tool-tab active" data-tool-tab="binder" type="button" aria-current="page">Create Binder</button><button class="tool-tab" data-tool-tab="convert" type="button">Convert</button><button class="tool-tab" data-tool-tab="batch" type="button">Batch</button><button class="tool-tab" data-tool-tab="inspect" type="button">Inspect</button><button class="tool-tab" data-tool-tab="clean-word" type="button">Clean Word</button></nav>
     <div class="tools-layout">
       <div>
@@ -5154,7 +5147,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
 
 <dialog id="progress-dialog" class="workbench-dialog privacy-dialog" aria-labelledby="progress-title"><div class="dialog-heading"><div><h2 id="progress-title">Working locally</h2><p id="progress-subtitle">Preparing the operation.</p></div></div><div class="dialog-body"><div class="job-progress"><progress id="job-progress" max="100" value="0"></progress><div class="job-progress-row"><span id="job-progress-label">Starting…</span><span id="job-progress-value">0%</span></div></div><div class="button-row" style="justify-content:flex-end;margin-top:16px"><button id="job-cancel" class="btn btn-danger" data-wb-action="cancel-job" type="button">Cancel</button></div></div></dialog>
 
-<footer class="app-footer">Comment Master v7.0.1 · Document processing stays in your browser · <button class="btn btn-light" data-wb-action="privacy" type="button">Privacy</button> · <a href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">Third-party notices</a></footer>
+<footer class="app-footer">Comment Master v7.1.0 · Document processing stays in your browser · <button class="btn btn-light" data-wb-action="privacy" type="button">Privacy</button> · <a href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">Third-party notices</a></footer>
 
 </body>
 </html>
