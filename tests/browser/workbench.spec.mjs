@@ -284,10 +284,13 @@ test.describe('document workspaces', () => {
     await expect(page.locator('#file-pill')).toContainText(fixtures.originalDocx.name);
 
     const navigation = page.locator('#global-navigation');
-    await navigation.getByRole('button', { name: 'PDF', exact: true }).click();
-    await expect(page.locator('#pdf-empty')).toBeVisible();
-    await navigation.getByRole('button', { name: 'Word', exact: true }).click();
+    await page.locator('#nav-toggle').click();
+    await expect(navigation.getByRole('button', { name: 'Current Word document', exact: true })).toBeVisible();
+    await navigation.getByRole('button', { name: 'More Tools', exact: true }).click();
+    await expect(page.locator('#tools-workspace')).toBeVisible();
 
+    await page.locator('#nav-toggle').click();
+    await navigation.getByRole('button', { name: 'Current Word document', exact: true }).click();
     await expect(page.locator('#workspace')).toBeVisible();
     await expect(page.locator('#overview-filename')).toHaveText(fixtures.originalDocx.name);
     await expect(page.locator('[data-tab="overview"]')).toHaveClass(/active/);
@@ -369,8 +372,11 @@ test.describe('document workspaces', () => {
   test('staged DOCX is handed directly to Create Clean Copy', async ({ page }) => {
     await openShell(page);
     await page.locator('#workbench-file-input').setInputFiles(fixtures.originalDocx);
-    await expect(page.locator('[data-suggestion="clean-word"]')).toBeVisible();
-    await page.locator('[data-suggestion="clean-word"]').click();
+    await expect(page.locator('#workspace')).toBeVisible({ timeout: 30_000 });
+    await page.locator('#nav-toggle').click();
+    await page.locator('#global-navigation').getByRole('button', { name: 'More Tools', exact: true }).click();
+    await page.locator('[data-tool-tab="clean-word"]').click();
+    await page.locator('[data-wb-action="clean-word-current"]').click();
 
     await expect(page.locator('body')).toHaveAttribute('data-route', 'tools');
     await expect(page.locator('[data-tool-pane="clean-word"]')).toBeVisible();
@@ -532,7 +538,11 @@ test.describe('generated output smoke flows', () => {
   test('Clean Word downloads a package with accepted changes and removed review data', async ({ page }) => {
     await openShell(page);
     await page.locator('#workbench-file-input').setInputFiles(fixtures.originalDocx);
-    await page.locator('[data-suggestion="clean-word"]').click();
+    await expect(page.locator('#workspace')).toBeVisible({ timeout: 30_000 });
+    await page.locator('#nav-toggle').click();
+    await page.locator('#global-navigation').getByRole('button', { name: 'More Tools', exact: true }).click();
+    await page.locator('[data-tool-tab="clean-word"]').click();
+    await page.locator('[data-wb-action="clean-word-current"]').click();
     await expect(page.locator('#clean-word-preview')).toContainText('Planned cleanup');
     await page.locator('[data-wb-action="clean-word-run"]').click();
     await expect(page.locator('#result-dialog')).toHaveAttribute('open', '', { timeout: 30_000 });
