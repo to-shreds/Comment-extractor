@@ -115,8 +115,12 @@ function bindWorkbenchEvents() {
   document.addEventListener('click', handleClick);
   document.addEventListener('change', handleChange);
   document.addEventListener('keydown', handleKeydown);
-  window.addEventListener('commentmaster:word-opened', () => switchRoute('word'));
+  window.addEventListener('commentmaster:word-opened', () => {
+    setDocumentRouteAvailability('word', true);
+    switchRoute('word');
+  });
   window.addEventListener('commentmaster:word-closed', () => {
+    setDocumentRouteAvailability('word', false);
     if (app.route === 'word') switchRoute('word');
   });
   window.addEventListener('beforeunload', (event) => {
@@ -276,6 +280,11 @@ async function runAction(action, button) {
     'suggestion': () => activateSuggestion(button.dataset.suggestion)
   };
   if (actions[action]) return actions[action]();
+}
+
+function setDocumentRouteAvailability(type, available) {
+  const button = $(type === 'word' ? 'current-word-route' : 'current-pdf-route');
+  if (button) button.hidden = !available;
 }
 
 function switchRoute(route) {
@@ -854,6 +863,7 @@ async function openPdfFile(file) {
   pdfState.inspection = await inspectPdfStructure(pdfState.bytes);
   $('pdf-empty').hidden = true;
   $('pdf-loaded').hidden = false;
+  setDocumentRouteAvailability('pdf', true);
   $('pdf-title').textContent = file.name;
   $('pdf-summary').textContent = `${pdfState.pageCount.toLocaleString()} page${pdfState.pageCount === 1 ? '' : 's'} · ${humanBytes(file.size)} · Working copy loaded`;
   switchRoute('pdf');
@@ -914,6 +924,7 @@ async function closePdfDocument(clearFile = true) {
     pdfState.bytes = null;
     pdfState.originalBytes = null;
     pdfState.redactions.clear();
+    setDocumentRouteAvailability('pdf', false);
     $('pdf-empty').hidden = false;
     $('pdf-loaded').hidden = true;
   }
