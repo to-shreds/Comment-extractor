@@ -5,6 +5,10 @@ on:
     branches:
       - simplify-ui-v7-1
 
+concurrency:
+  group: simplify-ui-v7-1
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
