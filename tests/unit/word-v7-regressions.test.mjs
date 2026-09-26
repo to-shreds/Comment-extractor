@@ -67,7 +67,7 @@ function loadApplicationHelpers() {
   const JSZip = zipContext.window.JSZip;
   assert.ok(JSZip, 'Embedded JSZip did not load');
 
-  let application = scriptContaining("const VERSION = '7.0.1'");
+  let application = scriptContaining("const VERSION = '7.1.0'");
   const marker = "window.addEventListener('DOMContentLoaded', init, { once: true });";
   assert.ok(application.includes(marker), 'Application test-hook marker is missing');
   application = application.replace(marker, `
