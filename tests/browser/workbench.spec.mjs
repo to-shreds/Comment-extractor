@@ -49,7 +49,7 @@ async function openShell(page) {
   });
   await page.goto('/');
   await page.waitForFunction(() => (
-    window.CommentMasterWorkbench?.version === '7.0.1'
+    window.CommentMasterWorkbench?.version === '7.1.0'
     && typeof window.CommentMasterWord?.openFile === 'function'
   ));
   await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
@@ -385,7 +385,6 @@ test.describe('generated output smoke flows', () => {
     await openShell(page);
 
     await page.locator('#workbench-file-input').setInputFiles(fixtures.jpxScanPdf);
-    await page.locator('[data-suggestion="open-pdf"]').click();
     await expect(page.locator('#pdf-loaded')).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('#pdf-scan-suggestion')).toBeVisible();
     const beforeOcr = await canvasColorSignature(page);
@@ -568,8 +567,8 @@ test.describe('privacy and offline behavior', () => {
     });
 
     await page.locator('#workbench-file-input').setInputFiles(fixtures.privacyDocx);
-    await page.locator('[data-suggestion="review-word"]').click();
     await expect(page.locator('#workspace')).toBeVisible({ timeout: 30_000 });
+    await page.locator('#toggle-advanced').click();
     await page.locator('[data-tab="relationships"]').click();
     await expect(page.locator('#rel-body')).toContainText(CANARY_URL);
 
@@ -631,7 +630,7 @@ test.describe('privacy and offline behavior', () => {
     if (!await page.evaluate(() => Boolean(navigator.serviceWorker.controller))) {
       await page.reload();
       await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
-      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.0.1');
+      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.1.0');
     }
 
     const cacheReport = await page.evaluate(async () => {
@@ -662,9 +661,9 @@ test.describe('privacy and offline behavior', () => {
     await context.setOffline(true);
     try {
       await page.reload({ waitUntil: 'domcontentloaded' });
-      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.0.1');
+      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.1.0');
       await expect(page.locator('#home')).toBeVisible();
-      await expect(page.getByRole('heading', { name: 'Your documents, handled locally.' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Open a document. We’ll take it from there.' })).toBeVisible();
     } finally {
       await context.setOffline(false);
     }
