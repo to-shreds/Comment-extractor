@@ -17,7 +17,7 @@ function scriptContaining(text) {
 
 function testSyntaxAndUiContract() {
   scripts.forEach((script, index) => assert.doesNotThrow(() => new Function(script), `Script ${index + 1} has invalid JavaScript`));
-  assert.match(html, /<title>Comment Master v7\.0\.1<\/title>/);
+  assert.match(html, /<title>Comment Master v7\.1\.0<\/title>/);
   assert.match(html, /class="tab-btn tab-export" data-tab="export"/);
   assert.match(html, /data-action="homeStripMetadata"/);
   assert.match(html, /data-action="homeExportComments"/);
@@ -33,7 +33,7 @@ function testSyntaxAndUiContract() {
 }
 
 function loadApplicationHelpers() {
-  let application = scriptContaining("const VERSION = '7.0.1'");
+  let application = scriptContaining("const VERSION = '7.1.0'");
   const marker = "window.addEventListener('DOMContentLoaded', init, { once: true });";
   assert.ok(application.includes(marker), 'Application test hook marker is missing');
   application = application.replace(marker, `
