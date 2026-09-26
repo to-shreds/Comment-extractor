@@ -1,4 +1,4 @@
-export const WORKBENCH_VERSION = '7.0.1';
+export const WORKBENCH_VERSION = '7.1.0';
 
 export const FORMAT_LABELS = Object.freeze({
   docx: 'Word document', pdf: 'PDF', xlsx: 'Excel workbook', csv: 'CSV', pptx: 'PowerPoint presentation',
