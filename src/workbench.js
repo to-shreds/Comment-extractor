@@ -221,6 +221,7 @@ async function runAction(action, button) {
     privacy: () => openDialog($('privacy-dialog')),
     'close-dialog': () => closeOwningDialog(button),
     'toggle-navigation': toggleNavigation,
+    'toggle-pdf-more': togglePdfMore,
     'open-files': chooseHomeFiles,
     'open-word-file': openWordFromSelectionOrPicker,
     'open-pdf-file': openPdfFromSelectionOrPicker,
@@ -321,6 +322,7 @@ function closeNavigation(restoreFocus = false) {
 
 function switchPdfTab(tab) {
   if (!['review', 'pages', 'ocr', 'redact', 'clean', 'forms', 'export'].includes(tab)) tab = 'review';
+  if (['clean', 'forms'].includes(tab)) togglePdfMore(true);
   pdfState.tab = tab;
   document.querySelectorAll('[data-pdf-tab]').forEach((button) => {
     const active = button.dataset.pdfTab === tab;
@@ -332,6 +334,17 @@ function switchPdfTab(tab) {
   if (tab !== 'redact') setRedactionDrawing(false);
   if (tab === 'clean' && pdfState.file) runGuarded(inspectWorkingPdf());
   if (tab === 'forms' && pdfState.file) runGuarded(renderPdfForms());
+}
+
+function togglePdfMore(force) {
+  const panel = $('pdf-more-tabs');
+  const toggle = $('toggle-pdf-more');
+  if (!panel || !toggle) return;
+  const open = typeof force === 'boolean' ? force : panel.hidden;
+  if (!open && ['clean', 'forms'].includes(pdfState.tab)) switchPdfTab('review');
+  panel.hidden = !open;
+  toggle.setAttribute('aria-expanded', String(open));
+  toggle.textContent = open ? 'Hide More' : 'More';
 }
 
 function switchToolTab(tab) {
@@ -653,7 +666,13 @@ function stageHomeFiles(files) {
   if (list.length) assertSafeFiles(list);
   app.homeFiles = list;
   renderHomeSelection();
-  if (list.length) switchRoute('home');
+  if (!list.length) return;
+  if (list.length === 1) {
+    const format = detectFormat(list[0]);
+    if (format === 'docx') { runGuarded(openWordFromSelectionOrPicker()); return; }
+    if (format === 'pdf') { runGuarded(openPdfFromSelectionOrPicker()); return; }
+  }
+  switchRoute('home');
 }
 
 function renderHomeSelection() {
@@ -666,7 +685,7 @@ function renderHomeSelection() {
     $('home-selection-status').textContent = '';
     return;
   }
-  $('home-selection-status').textContent = `${files.length} file${files.length === 1 ? '' : 's'} selected. Choose a suggested next step or another tool.`;
+  $('home-selection-status').textContent = `${files.length} file${files.length === 1 ? '' : 's'} selected. Recommended next steps:`;
   $('selected-files').innerHTML = files.map((file, index) => `<article class="selected-file"><span class="file-type">${escapeHtml(detectFormat(file).toUpperCase())}</span><div><strong title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</strong><small>${escapeHtml(formatLabel(detectFormat(file)))} · ${humanBytes(file.size)}</small></div><button type="button" class="icon-btn" data-home-remove="${index}" aria-label="Remove ${escapeHtml(file.name)}">×</button></article>`).join('');
   $('selected-files').querySelectorAll('[data-home-remove]').forEach((button) => button.addEventListener('click', () => {
     app.homeFiles.splice(Number(button.dataset.homeRemove), 1);
