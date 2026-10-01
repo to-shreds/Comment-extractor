@@ -37,6 +37,10 @@ const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingm
 const PDF_MIME = 'application/pdf';
 const MAX_PDF_PAGES = 2000;
 const MAX_RENDER_PIXELS = 32_000_000;
+let pdfOpenToken = 0;
+let pendingPdfLoad = null;
+let pdfSearchToken = 0;
+let redactionSearchToken = 0;
 
 const app = {
   route: 'home',
@@ -102,11 +106,12 @@ const SUGGESTIONS = {
 
 function init() {
   bindWorkbenchEvents();
-  switchRoute('home');
+  switchRoute('home', false);
   renderHomeSelection();
   renderToolQueue('binder');
   renderToolQueue('convert');
   renderToolQueue('batch');
+  showStatus('Ready. Choose a file to begin.');
   registerServiceWorker();
   exposeWorkbenchApi();
 }
@@ -132,14 +137,14 @@ function bindWorkbenchEvents() {
   bindDropZone($('home-drop-zone'), (files) => stageHomeFiles(files));
   bindDropZone($('pdf-empty'), (files) => {
     const pdf = Array.from(files).find((file) => detectFormat(file) === 'pdf');
-    if (pdf) openPdfFile(pdf);
+    if (pdf) return openPdfFile(pdf);
     else showError('Drop a PDF into the PDF workspace.');
   });
   document.querySelectorAll('.tool-source-zone').forEach((zone) => bindDropZone(zone, (files) => {
     const pane = zone.closest('[data-tool-pane]');
     if (!pane) return;
     const tab = pane.dataset.toolPane;
-    if (tab === 'inspect') inspectFiles(Array.from(files));
+    if (tab === 'inspect') return inspectFiles(Array.from(files));
     else if (tab === 'clean-word') setCleanWordFile(Array.from(files).find((file) => detectFormat(file) === 'docx'));
     else addToolFiles(tab, files);
   }));
@@ -159,6 +164,7 @@ function bindWorkbenchEvents() {
 }
 
 async function handleClick(event) {
+  if (!event.target.closest('#global-navigation, #nav-toggle')) closeNavigation();
   if (event.target.closest('#global-navigation')) closeNavigation();
   const routeButton = event.target.closest('[data-route-target]');
   if (routeButton) {
@@ -227,8 +233,8 @@ async function runAction(action, button) {
     'toggle-navigation': toggleNavigation,
     'toggle-pdf-more': togglePdfMore,
     'open-files': chooseHomeFiles,
-    'open-word-file': openWordFromSelectionOrPicker,
-    'open-pdf-file': openPdfFromSelectionOrPicker,
+    'open-word-file': () => openWordFromSelectionOrPicker(true),
+    'open-pdf-file': () => openPdfFromSelectionOrPicker(true),
     'clear-selection': () => stageHomeFiles([]),
     'open-compare': () => openCompare('documents'),
     'choose-task': () => chooseTask(button.dataset.task),
@@ -287,7 +293,7 @@ function setDocumentRouteAvailability(type, available) {
   if (button) button.hidden = !available;
 }
 
-function switchRoute(route) {
+function switchRoute(route, moveFocus = true) {
   if (!['home', 'word', 'pdf', 'tools'].includes(route)) route = 'home';
   app.route = route;
   document.querySelectorAll('[data-route-view]').forEach((view) => {
@@ -305,7 +311,7 @@ function switchRoute(route) {
   document.body.dataset.route = route;
   closeNavigation();
   const heading = document.querySelector(`[data-route-view="${route}"]:not([hidden]) h2`);
-  if (heading) {
+  if (heading && moveFocus) {
     heading.setAttribute('tabindex', '-1');
     heading.focus({ preventScroll: true });
   }
@@ -333,6 +339,7 @@ function switchPdfTab(tab) {
   if (!['review', 'pages', 'ocr', 'redact', 'clean', 'forms', 'export'].includes(tab)) tab = 'review';
   if (['clean', 'forms'].includes(tab)) togglePdfMore(true);
   pdfState.tab = tab;
+  document.querySelector('.pdf-shell').dataset.activeTab = tab;
   document.querySelectorAll('[data-pdf-tab]').forEach((button) => {
     const active = button.dataset.pdfTab === tab;
     button.classList.toggle('active', active);
@@ -387,7 +394,8 @@ async function chooseTask(task) {
   switchToolTab(task === 'clean-word' ? 'clean-word' : task);
   if (task === 'clean-word') {
     const wordFile = app.homeFiles.find((file) => detectFormat(file) === 'docx');
-    if (wordFile) setCleanWordFile(wordFile);
+    if (wordFile && window.CommentMasterWord?.isCurrentFile?.(wordFile)) await useCurrentWordForClean();
+    else if (wordFile) setCleanWordFile(wordFile);
   }
   if (task === 'binder' && app.homeFiles.length) addToolFiles('binder', app.homeFiles);
   if (task === 'convert' && app.homeFiles.length) addToolFiles('convert', app.homeFiles);
@@ -430,6 +438,7 @@ function clearError() {
 
 function friendlyError(error) {
   const message = String(error && error.message || error || 'Unknown error');
+  if (/500 MB combined|250 MB safety|\d[\d,]*-page browser safety|no more than \d+ files/i.test(message)) return message;
   if (/password|encrypted/i.test(message)) return 'This PDF is password-protected. Password entry is not available for this operation.';
   if (/invalid pdf|header|xref|object/i.test(message)) return 'This PDF appears damaged. Try Normalize PDF if it can still be opened.';
   if (/memory|allocation|too large|safety limit/i.test(message)) return 'This file is too large for the current browser safety limits. Try a smaller file or fewer pages.';
@@ -600,7 +609,7 @@ async function saveBlob(blob, filename, preferredHandle = null) {
       showStatus(`Saved ${safeName}.`);
       return handle;
     } catch (error) {
-      if (error && error.name === 'AbortError') return null;
+      if (error && error.name === 'AbortError') throw error;
     }
   }
   const url = URL.createObjectURL(blob);
@@ -629,11 +638,13 @@ function bindDropZone(zone, callback) {
   ['dragleave', 'drop'].forEach((type) => zone.addEventListener(type, (event) => {
     event.preventDefault();
     zone.classList.remove('dragover');
-    if (type === 'drop' && event.dataTransfer && event.dataTransfer.files.length) runGuarded(callback(event.dataTransfer.files));
+    if (type === 'drop' && event.dataTransfer && event.dataTransfer.files.length) runGuarded(Promise.resolve().then(() => callback(event.dataTransfer.files)));
   }));
 }
 
 async function chooseFiles(options = {}) {
+  const input = $(options.inputId || 'workbench-file-input');
+  if (input?.dataset.pendingPicker) return [];
   const accept = options.accept || ['.docx', '.pdf', '.xlsx', '.csv', '.odt', '.rtf', '.txt', '.md', '.html', '.png', '.jpg', '.jpeg', '.webp'];
   if (window.isSecureContext && typeof window.showOpenFilePicker === 'function') {
     try {
@@ -650,27 +661,30 @@ async function chooseFiles(options = {}) {
     }
   }
   return new Promise((resolve) => {
-    const input = $(options.inputId || 'workbench-file-input');
     if (!input) { resolve([]); return; }
     input.multiple = options.multiple !== false;
     input.value = '';
     input.dataset.pendingPicker = 'true';
-    const finish = () => {
+    const finish = (event) => {
       input.removeEventListener('change', finish);
+      input.removeEventListener('cancel', finish);
       delete input.dataset.pendingPicker;
-      resolve(Array.from(input.files || []));
+      const files = event.type === 'cancel' ? [] : Array.from(input.files || []);
+      input.value = '';
+      resolve(files);
     };
     input.addEventListener('change', finish, { once: true });
+    input.addEventListener('cancel', finish, { once: true });
     input.click();
   });
 }
 
 async function chooseHomeFiles() {
   const files = await chooseFiles({ inputId: 'workbench-file-input', multiple: true });
-  if (files.length) stageHomeFiles(files);
+  if (files.length) await stageHomeFiles(files);
 }
 
-function stageHomeFiles(files) {
+async function stageHomeFiles(files) {
   const list = Array.from(files || []);
   if (list.length) assertSafeFiles(list);
   app.homeFiles = list;
@@ -678,8 +692,8 @@ function stageHomeFiles(files) {
   if (!list.length) return;
   if (list.length === 1) {
     const format = detectFormat(list[0]);
-    if (format === 'docx') { runGuarded(openWordFromSelectionOrPicker()); return; }
-    if (format === 'pdf') { runGuarded(openPdfFromSelectionOrPicker()); return; }
+    if (format === 'docx') return openWordFromSelectionOrPicker();
+    if (format === 'pdf') return openPdfFromSelectionOrPicker();
   }
   switchRoute('home');
 }
@@ -726,11 +740,11 @@ async function activateSuggestion(suggestion) {
     switchToolTab('inspect');
     return inspectFiles(app.homeFiles);
   }
-  chooseTask(suggestion);
+  return chooseTask(suggestion);
 }
 
-async function openWordFromSelectionOrPicker() {
-  let file = app.homeFiles.find((candidate) => detectFormat(candidate) === 'docx');
+async function openWordFromSelectionOrPicker(forcePicker = false) {
+  let file = forcePicker ? null : app.homeFiles.find((candidate) => detectFormat(candidate) === 'docx');
   if (!file) {
     const files = await chooseFiles({ inputId: 'file-input', multiple: false, accept: ['.docx'], description: 'Word document' });
     file = files[0];
@@ -738,11 +752,11 @@ async function openWordFromSelectionOrPicker() {
   if (!file) return;
   if (!window.CommentMasterWord) throw new Error('The Word workspace is not ready. Reload Comment Master and try again.');
   await window.CommentMasterWord.openFile(file);
-  switchRoute('word');
+  if (window.CommentMasterWord.hasDocument()) switchRoute('word');
 }
 
-async function openPdfFromSelectionOrPicker() {
-  let file = app.homeFiles.find((candidate) => detectFormat(candidate) === 'pdf');
+async function openPdfFromSelectionOrPicker(forcePicker = false) {
+  let file = forcePicker ? null : app.homeFiles.find((candidate) => detectFormat(candidate) === 'pdf');
   if (!file) {
     const files = await chooseFiles({ inputId: 'pdf-file-input', multiple: false, accept: ['.pdf'], description: 'PDF' });
     file = files[0];
@@ -754,7 +768,7 @@ async function handleFileInput(input) {
   if (input.dataset.pendingPicker) return;
   const files = Array.from(input.files || []);
   if (!files.length) return;
-  if (input.id === 'workbench-file-input') stageHomeFiles(files);
+  if (input.id === 'workbench-file-input') await stageHomeFiles(files);
   else if (input.id === 'pdf-file-input') await openPdfFile(files[0]);
   else if (input.id === 'binder-files') addToolFiles('binder', files);
   else if (input.id === 'convert-files') addToolFiles('convert', files);
@@ -842,73 +856,130 @@ async function clearOptionalCaches() {
 
 async function openPdfFile(file) {
   assertSafeFiles([file]);
+  if (app.currentJob) throw new Error('Wait for the current operation to finish before opening another PDF.');
   if (detectFormat(file) !== 'pdf') throw new Error('Choose a PDF for the PDF workspace.');
-  if (pdfState.file && hasPendingPdfWork() && file !== pdfState.file) {
-    const discard = window.confirm('Open another PDF and discard the current unsaved working changes and pending redaction marks?');
-    if (!discard) return false;
+  if (file === pdfState.file && pdfState.document) {
+    pdfOpenToken += 1;
+    if (pendingPdfLoad) void pendingPdfLoad.destroy().catch(() => {});
+    pendingPdfLoad = null;
+    switchRoute('pdf');
+    return true;
   }
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  await closePdfDocument(false);
-  pdfState.file = file;
-  pdfState.originalBytes = bytes.slice();
-  pdfState.bytes = bytes;
-  pdfState.saveHandle = app.pickerHandles.get(file) || null;
-  pdfState.dirty = false;
-  pdfState.redactions.clear();
-  pdfState.undo = [];
-  await loadPdfViewerDocument();
-  pdfState.order = Array.from({ length: pdfState.pageCount }, (_, index) => index);
-  pdfState.rotations = {};
-  pdfState.current = 0;
-  pdfState.inspection = await inspectPdfStructure(pdfState.bytes);
-  $('pdf-empty').hidden = true;
-  $('pdf-loaded').hidden = false;
-  setDocumentRouteAvailability('pdf', true);
-  $('pdf-title').textContent = file.name;
-  $('pdf-summary').textContent = `${pdfState.pageCount.toLocaleString()} page${pdfState.pageCount === 1 ? '' : 's'} · ${humanBytes(file.size)} · Working copy loaded`;
-  switchRoute('pdf');
-  switchPdfTab('review');
-  renderPdfFileSummary();
-  renderPageList();
-  await renderPdfPage();
-  runGuarded(renderPdfThumbnails());
-  runGuarded(detectScannedPdf());
-  showStatus(`Opened ${file.name}. The original remains unchanged.`);
-  return true;
+  const token = ++pdfOpenToken;
+  if (pendingPdfLoad) void pendingPdfLoad.destroy().catch(() => {});
+  showStatus(`Opening ${file.name}…`);
+  let candidate = null;
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    if (token !== pdfOpenToken) return false;
+    const loadingTask = createPdfLoadingTask(bytes);
+    candidate = loadingTask;
+    pendingPdfLoad = loadingTask;
+    const document = await readPdfLoadingTask(loadingTask);
+    const inspection = await inspectPdfStructure(bytes);
+    if (token !== pdfOpenToken) return false;
+    if (pdfState.file && hasPendingPdfWork()) {
+      const discard = window.confirm('Open another PDF and discard the current unsaved working changes and pending redaction marks?');
+      if (!discard) return false;
+    }
+    await closePdfDocument(false);
+    if (token !== pdfOpenToken) return false;
+    pdfState.file = file;
+    pdfState.originalBytes = bytes.slice();
+    pdfState.bytes = bytes;
+    pdfState.document = document;
+    pdfState.loadingTask = loadingTask;
+    pdfState.pageCount = document.numPages;
+    candidate = null;
+    pendingPdfLoad = null;
+    pdfState.saveHandle = app.pickerHandles.get(file) || null;
+    pdfState.dirty = false;
+    pdfState.redactions.clear();
+    pdfState.undo = [];
+    pdfState.textCache.clear();
+    pdfState.textItems.clear();
+    pdfState.order = Array.from({ length: pdfState.pageCount }, (_, index) => index);
+    pdfState.rotations = {};
+    pdfState.current = 0;
+    pdfState.inspection = inspection;
+    resetPdfSearch();
+    $('pdf-scan-suggestion').hidden = true;
+    $('pdf-empty').hidden = true;
+    $('pdf-loaded').hidden = false;
+    setDocumentRouteAvailability('pdf', true);
+    $('pdf-title').textContent = file.name;
+    $('pdf-summary').textContent = `${pdfState.pageCount.toLocaleString()} page${pdfState.pageCount === 1 ? '' : 's'} · ${humanBytes(file.size)} · Working copy loaded`;
+    clearError();
+    switchRoute('pdf');
+    switchPdfTab('review');
+    renderPdfFileSummary();
+    renderPageList();
+    await renderPdfPage();
+    if (token !== pdfOpenToken) return false;
+    runGuarded(renderPdfThumbnails());
+    runGuarded(detectScannedPdf());
+    showStatus(`Opened ${file.name}. The original remains unchanged.`);
+    return true;
+  } catch (error) {
+    if (token !== pdfOpenToken) return false;
+    throw error;
+  } finally {
+    if (candidate) {
+      if (pendingPdfLoad === candidate) pendingPdfLoad = null;
+      await candidate.destroy().catch(() => {});
+    }
+  }
+}
+
+function createPdfLoadingTask(bytes) {
+  const loadingTask = pdfjsLib.getDocument(pdfjsDocumentOptions(bytes.slice(), { verbosity: 0 }));
+  loadingTask.onPassword = () => {
+    loadingTask.passwordMessage = 'This PDF is password-protected. Entering passwords is not yet supported.';
+    void loadingTask.destroy().catch(() => {});
+  };
+  return loadingTask;
+}
+
+async function readPdfLoadingTask(loadingTask) {
+  let document;
+  try { document = await loadingTask.promise; }
+  catch (error) { throw loadingTask.passwordMessage ? new Error(loadingTask.passwordMessage) : error; }
+  if (document.numPages > MAX_PDF_PAGES) throw new Error(`This PDF has more than the ${MAX_PDF_PAGES.toLocaleString()}-page browser safety limit.`);
+  if (!document.numPages) throw new Error('This PDF has no pages to open.');
+  return document;
 }
 
 async function loadPdfViewerDocument() {
-  if (pdfState.loadingTask) {
-    try { await pdfState.loadingTask.destroy(); } catch (_) {}
-    pdfState.loadingTask = null;
-    pdfState.document = null;
-  }
-  const loadingTask = pdfjsLib.getDocument(pdfjsDocumentOptions(pdfState.bytes.slice(), { verbosity: 0 }));
-  let passwordMessage = '';
-  loadingTask.onPassword = (_updatePassword, reason) => {
-    passwordMessage = reason ? 'This PDF is password-protected. Entering passwords is not yet supported.' : 'This PDF uses unsupported encryption.';
-    void loadingTask.destroy();
-  };
-  pdfState.loadingTask = loadingTask;
+  const loadingTask = createPdfLoadingTask(pdfState.bytes);
   try {
-    pdfState.document = await loadingTask.promise;
+    const document = await readPdfLoadingTask(loadingTask);
+    await closePdfDocument(false);
+    pdfState.loadingTask = loadingTask;
+    pdfState.document = document;
+    pdfState.pageCount = document.numPages;
+    pdfState.textCache.clear();
+    pdfState.textItems.clear();
+    resetPdfSearch();
   } catch (error) {
-    pdfState.document = null;
-    pdfState.loadingTask = null;
-    throw passwordMessage ? new Error(passwordMessage) : error;
+    await loadingTask.destroy().catch(() => {});
+    throw error;
   }
-  pdfState.pageCount = pdfState.document.numPages;
-  if (pdfState.pageCount > MAX_PDF_PAGES) {
-    await loadingTask.destroy();
-    pdfState.loadingTask = null;
-    pdfState.document = null;
-    throw new Error(`This PDF has more than the ${MAX_PDF_PAGES.toLocaleString()}-page browser safety limit.`);
-  }
-  pdfState.textCache.clear();
-  pdfState.textItems.clear();
+}
+
+function resetPdfSearch() {
+  pdfSearchToken += 1;
+  $('pdf-search-results').innerHTML = '';
+  $('pdf-search').value = '';
 }
 
 async function closePdfDocument(clearFile = true) {
+  pdfSearchToken += 1;
+  redactionSearchToken += 1;
+  if (clearFile) {
+    pdfOpenToken += 1;
+    if (pendingPdfLoad) void pendingPdfLoad.destroy().catch(() => {});
+    pendingPdfLoad = null;
+  }
   pdfState.renderToken += 1;
   pdfState.thumbnailToken += 1;
   if (pdfState.renderTask) {
@@ -924,6 +995,22 @@ async function closePdfDocument(clearFile = true) {
     pdfState.bytes = null;
     pdfState.originalBytes = null;
     pdfState.redactions.clear();
+    pdfState.dirty = false;
+    pdfState.pageCount = 0;
+    pdfState.current = 0;
+    pdfState.order = [];
+    pdfState.rotations = {};
+    pdfState.undo = [];
+    pdfState.inspection = null;
+    pdfState.saveHandle = null;
+    pdfState.textCache.clear();
+    pdfState.textItems.clear();
+    resetPdfSearch();
+    ['pdf-title', 'pdf-summary', 'pdf-file-pill', 'pdf-page-number', 'pdf-page-accessible-text', 'pdf-text-layer', 'redaction-layer', 'pdf-thumbnails', 'pdf-page-list', 'pdf-form-fields', 'pdf-search-results', 'pdf-health-results'].forEach((id) => { $(id).textContent = ''; });
+    $('pdf-canvas').width = 0;
+    $('pdf-canvas').height = 0;
+    $('redaction-list').innerHTML = '';
+    $('redaction-search').value = '';
     setDocumentRouteAvailability('pdf', false);
     $('pdf-empty').hidden = false;
     $('pdf-loaded').hidden = true;
@@ -949,7 +1036,9 @@ async function renderPdfPage() {
     try { pdfState.renderTask.cancel(); } catch (_) {}
   }
   const sourceIndex = pdfState.order[pdfState.current];
-  const page = await pdfState.document.getPage(sourceIndex + 1);
+  let page;
+  try { page = await pdfState.document.getPage(sourceIndex + 1); }
+  catch (error) { if (token !== pdfState.renderToken) return; throw error; }
   if (token !== pdfState.renderToken) return;
   const baseViewport = page.getViewport({ scale: 1, rotation: normalizedPageRotation(page, pdfState.current) });
   const container = $('pdf-page-container');
@@ -962,8 +1051,8 @@ async function renderPdfPage() {
   }
   scale = Math.max(.25, Math.min(3.5, scale || 1));
   const viewport = page.getViewport({ scale, rotation: normalizedPageRotation(page, pdfState.current) });
-  if (viewport.width * viewport.height > MAX_RENDER_PIXELS) throw new Error('This page is too large to render safely at the selected zoom. Reduce the zoom and try again.');
   const outputScale = Math.min(window.devicePixelRatio || 1, 2);
+  if (viewport.width * viewport.height * outputScale ** 2 > MAX_RENDER_PIXELS) throw new Error('This page is too large to render safely at the selected zoom. Reduce the zoom and try again.');
   const canvas = $('pdf-canvas');
   const context = canvas.getContext('2d', { alpha: false });
   canvas.width = Math.floor(viewport.width * outputScale);
@@ -978,6 +1067,7 @@ async function renderPdfPage() {
   catch (error) { if (!/cancel/i.test(String(error && error.message))) throw error; return; }
   if (token !== pdfState.renderToken) return;
   const textContent = await page.getTextContent({ disableNormalization: false, includeMarkedContent: false });
+  if (token !== pdfState.renderToken) return;
   pdfState.textCache.set(sourceIndex, textContent.items.map((item) => item.str || '').join(' ').replace(/\s+/g, ' ').trim());
   pdfState.textItems.set(sourceIndex, textContent.items);
   renderPdfTextLayer(textContent, viewport);
@@ -1020,12 +1110,16 @@ function renderPdfTextLayer(textContent, viewport) {
 
 async function renderPdfThumbnails() {
   const token = ++pdfState.thumbnailToken;
+  const document = pdfState.document;
   const rail = $('pdf-thumbnails');
   rail.innerHTML = pdfState.order.map((_source, index) => `<button type="button" class="pdf-thumb${index === pdfState.current ? ' active' : ''}" data-pdf-page="${index}" aria-label="Go to page ${index + 1}"><canvas width="90" height="118" aria-hidden="true"></canvas><span>${index + 1}</span></button>`).join('');
   rail.querySelectorAll('[data-pdf-page]').forEach((button) => button.addEventListener('click', () => goToPdfPage(Number(button.dataset.pdfPage))));
   for (let index = 0; index < pdfState.order.length; index += 1) {
     if (token !== pdfState.thumbnailToken || !pdfState.document) return;
-    const page = await pdfState.document.getPage(pdfState.order[index] + 1);
+    let page;
+    try { page = await document.getPage(pdfState.order[index] + 1); }
+    catch (error) { if (token !== pdfState.thumbnailToken || document !== pdfState.document) return; throw error; }
+    if (token !== pdfState.thumbnailToken || document !== pdfState.document) return;
     const base = page.getViewport({ scale: 1, rotation: normalizedPageRotation(page, index) });
     const scale = 90 / base.width;
     const viewport = page.getViewport({ scale, rotation: normalizedPageRotation(page, index) });
@@ -1070,22 +1164,28 @@ function goToPdfPage(index) {
 
 function changePdfPage(delta) { goToPdfPage(pdfState.current + delta); }
 
-async function getPageText(sourceIndex) {
-  if (pdfState.textCache.has(sourceIndex)) return pdfState.textCache.get(sourceIndex);
-  const page = await pdfState.document.getPage(sourceIndex + 1);
+async function getPageText(sourceIndex, document = pdfState.document) {
+  if (document === pdfState.document && pdfState.textCache.has(sourceIndex)) return pdfState.textCache.get(sourceIndex);
+  const page = await document.getPage(sourceIndex + 1);
   const content = await page.getTextContent({ disableNormalization: false });
   const text = content.items.map((item) => item.str || '').join(' ').replace(/\s+/g, ' ').trim();
-  pdfState.textCache.set(sourceIndex, text);
-  pdfState.textItems.set(sourceIndex, content.items);
+  if (document === pdfState.document) {
+    pdfState.textCache.set(sourceIndex, text);
+    pdfState.textItems.set(sourceIndex, content.items);
+  }
   return text;
 }
 
 async function detectScannedPdf() {
+  const document = pdfState.document;
   const sample = Math.min(pdfState.pageCount, 6);
   let pagesWithText = 0;
   for (let index = 0; index < sample; index += 1) {
-    if ((await getPageText(index)).length > 20) pagesWithText += 1;
+    try { if ((await getPageText(index, document)).length > 20) pagesWithText += 1; }
+    catch (error) { if (document !== pdfState.document) return; throw error; }
+    if (document !== pdfState.document) return;
   }
+  if (document !== pdfState.document) return;
   const likelyScanned = sample > 0 && pagesWithText / sample < .34;
   $('pdf-scan-suggestion').hidden = !likelyScanned;
   if (likelyScanned) $('pdf-summary').textContent += ' · Looks scanned';
@@ -1093,16 +1193,23 @@ async function detectScannedPdf() {
 
 async function searchPdf() {
   if (!pdfState.document) return;
+  const document = pdfState.document;
+  const token = ++pdfSearchToken;
+  const order = pdfState.order.slice();
   const query = $('pdf-search').value.trim();
   if (!query) throw new Error('Enter a word or phrase to search for.');
   const results = [];
   const lowered = query.toLocaleLowerCase();
-  for (let virtual = 0; virtual < pdfState.order.length; virtual += 1) {
-    const text = await getPageText(pdfState.order[virtual]);
+  for (let virtual = 0; virtual < order.length; virtual += 1) {
+    let text;
+    try { text = await getPageText(order[virtual], document); }
+    catch (error) { if (document !== pdfState.document || token !== pdfSearchToken) return; throw error; }
+    if (document !== pdfState.document || token !== pdfSearchToken) return;
     const position = text.toLocaleLowerCase().indexOf(lowered);
     if (position >= 0) results.push({ page: virtual, context: text.slice(Math.max(0, position - 70), position + query.length + 90) });
     if (virtual % 10 === 0) await yieldToMain();
   }
+  if (document !== pdfState.document || token !== pdfSearchToken) return;
   $('pdf-search-results').innerHTML = results.length ? results.map((result) => `<button type="button" data-search-page="${result.page}"><strong>Page ${result.page + 1}</strong><span>${escapeHtml(result.context)}</span></button>`).join('') : '<p>No matches found.</p>';
   $('pdf-search-results').querySelectorAll('[data-search-page]').forEach((button) => button.addEventListener('click', () => goToPdfPage(Number(button.dataset.searchPage))));
   showStatus(`${results.length} page${results.length === 1 ? '' : 's'} contain “${query}”.`);
@@ -1477,22 +1584,30 @@ function removeRedaction(page, id) {
 }
 
 function clearRedactions() {
+  redactionSearchToken += 1;
   pdfState.redactions.clear();
   renderRedactionLayer();
 }
 
 async function findRedactionMatches() {
   if (!pdfState.document) return;
+  const document = pdfState.document;
+  const order = pdfState.order.slice();
+  const token = ++redactionSearchToken;
   const query = $('redaction-search').value.trim();
   if (!query) throw new Error('Enter text or a regular expression to find.');
   let expression;
   try { expression = $('redaction-regex').checked ? new RegExp(query, 'giu') : new RegExp(escapeRegExp(query), 'giu'); }
   catch (error) { throw new Error(`The regular expression is not valid. (${error.message})`); }
   let matchCount = 0;
-  for (let virtual = 0; virtual < pdfState.order.length; virtual += 1) {
-    const source = pdfState.order[virtual];
-    const page = await pdfState.document.getPage(source + 1);
-    const content = await page.getTextContent({ disableNormalization: false });
+  for (let virtual = 0; virtual < order.length; virtual += 1) {
+    const source = order[virtual];
+    let page, content;
+    try {
+      page = await document.getPage(source + 1);
+      content = await page.getTextContent({ disableNormalization: false });
+    } catch (error) { if (document !== pdfState.document || token !== redactionSearchToken) return; throw error; }
+    if (document !== pdfState.document || token !== redactionSearchToken || order.some((source, index) => source !== pdfState.order[index])) return;
     const viewport = page.getViewport({ scale: 1, rotation: normalizedPageRotation(page, virtual) });
     const segments = [];
     let joined = '';
@@ -1513,8 +1628,10 @@ async function findRedactionMatches() {
     }
     await yieldToMain();
   }
-  renderRedactionLayer();
-  showStatus(`${matchCount} approved search match${matchCount === 1 ? '' : 'es'} marked for review.`);
+  if (document === pdfState.document && token === redactionSearchToken) {
+    renderRedactionLayer();
+    showStatus(`${matchCount} approved search match${matchCount === 1 ? '' : 'es'} marked for review.`);
+  }
 }
 
 function normalizedTextItemBox(item, viewport) {
@@ -1799,10 +1916,13 @@ function addToolFiles(queue, files) {
   if (!['binder', 'convert', 'batch'].includes(queue)) return;
   const incoming = assertSafeFiles(Array.from(files || []));
   const target = toolState[queue];
+  const additions = [];
   incoming.forEach((file) => {
-    const duplicate = target.some((item) => item.file.name === file.name && item.file.size === file.size && item.file.lastModified === file.lastModified);
-    if (!duplicate) target.push({ file, status: 'Ready', error: '', result: null, pageRange: '' });
+    const duplicate = [...target, ...additions].some((item) => item.file.name === file.name && item.file.size === file.size && item.file.lastModified === file.lastModified);
+    if (!duplicate) additions.push({ file, status: 'Ready', error: '', result: null, pageRange: '' });
   });
+  assertSafeFiles([...target, ...additions].map((item) => item.file));
+  target.push(...additions);
   renderToolQueue(queue);
 }
 
@@ -1824,7 +1944,7 @@ function renderToolQueue(queue) {
   container.querySelectorAll('[data-binder-range]').forEach((input) => input.addEventListener('input', () => { toolState.binder[Number(input.dataset.binderRange)].pageRange = input.value; }));
   container.querySelectorAll('[data-result-index]').forEach((button) => button.addEventListener('click', () => {
     const result = items[Number(button.dataset.resultIndex)].result;
-    if (result) saveBlob(result.blob, result.filename);
+    if (result) runGuarded(saveBlob(result.blob, result.filename));
   }));
   if (queue === 'binder') bindBinderReordering(container);
 }
@@ -1837,9 +1957,11 @@ function bindBinderReordering(container) {
     row.addEventListener('drop', (event) => {
       event.preventDefault();
       row.classList.remove('dragover');
-      const from = Number(event.dataTransfer.getData('text/plain'));
+      const value = event.dataTransfer?.getData('text/plain') || '';
+      if (!/^\d+$/.test(value)) return;
+      const from = Number(value);
       const to = Number(row.dataset.queueRow);
-      if (!Number.isInteger(from) || from === to) return;
+      if (!Number.isInteger(from) || from < 0 || from >= toolState.binder.length || from === to) return;
       const [item] = toolState.binder.splice(from, 1);
       toolState.binder.splice(to, 0, item);
       renderToolQueue('binder');
@@ -1891,7 +2013,7 @@ async function buildBinder() {
 
 async function chooseInspectorFiles() {
   const files = await chooseFiles({ inputId: 'inspect-files', multiple: true });
-  if (files.length) inspectFiles(files);
+  if (files.length) await inspectFiles(files);
 }
 
 async function convertQueuedFiles() {
@@ -1917,7 +2039,7 @@ async function convertQueuedFiles() {
     if (results.length === 1) showResult('conversion', { ...results[0], heading: 'Conversion ready', message: results[0].note || 'The converted copy is ready.' });
     else {
       const zip = new window.JSZip();
-      results.forEach((result) => zip.file(result.filename, result.blob));
+      results.forEach((result) => addZipResult(zip, result));
       const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
       showResult('conversion', { blob, filename: `Converted Documents (${dateStamp()}).zip`, heading: 'Conversions ready', message: `${results.length} converted files were packaged together. Individual Save buttons remain available in the queue.` });
     }
@@ -2333,9 +2455,23 @@ async function runBatchItem(file, operation, signal) {
 async function downloadBatchZip() {
   if (!toolState.batchResults.length) return;
   const zip = new window.JSZip();
-  toolState.batchResults.forEach((result) => zip.file(result.filename, result.blob));
+  toolState.batchResults.forEach((result) => addZipResult(zip, result));
   const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
   await saveBlob(blob, `Comment Master Batch (${dateStamp()}).zip`);
+}
+
+function addZipResult(zip, result) {
+  const filename = safeFilename(result.filename);
+  const extension = extensionOf(filename);
+  const suffix = extension ? `.${extension}` : '';
+  const base = suffix ? filename.slice(0, -suffix.length) : filename;
+  let name = filename;
+  let number = 2;
+  while (zip.file(name)) {
+    const ending = ` (${number++})${suffix}`;
+    name = `${base.slice(0, 180 - ending.length).trimEnd()}${ending}`;
+  }
+  zip.file(name, result.blob);
 }
 
 async function chooseCleanWordFile() {
@@ -2374,8 +2510,10 @@ async function renderCleanWordPreview() {
     $('clean-word-preview').textContent = 'Choose a document to preview the cleanup.';
     return;
   }
+  const file = app.cleanWordFile;
   try {
-    const info = await inspectDocx(app.cleanWordFile);
+    const info = await inspectDocx(file);
+    if (file !== app.cleanWordFile) return;
     const options = cleanWordOptions();
     const changes = [];
     if (options.acceptChanges) changes.push(`accept ${info.revisions} tracked changes`);
@@ -2387,7 +2525,7 @@ async function renderCleanWordPreview() {
     if (options.externalRelationships) changes.push(`remove ${info.externalRelationships} external relationships`);
     if (options.embeddedContent) changes.push(`remove ${info.embeddedObjects} embedded or active items`);
     $('clean-word-preview').innerHTML = `<strong>Planned cleanup</strong><p>${changes.length ? escapeHtml(changes.join('; ')) : 'No cleanup operations are selected.'}.</p><p>Visible substantive language is not otherwise rewritten.</p>`;
-  } catch (error) { $('clean-word-preview').textContent = friendlyError(error); }
+  } catch (error) { if (file === app.cleanWordFile) $('clean-word-preview').textContent = friendlyError(error); }
 }
 
 async function createCleanWordCopy() {
@@ -2621,7 +2759,7 @@ async function clearLocalWorkspace() {
   stageHomeFiles([]);
   toolState.binder = []; toolState.convert = []; toolState.batch = []; toolState.batchResults = []; toolState.inspectorFiles = [];
   app.cleanWordFile = null; app.result = null;
-  if (wordWork && typeof window.CommentMasterWord.clearLocalDocument === 'function') window.CommentMasterWord.clearLocalDocument();
+  if (typeof window.CommentMasterWord?.clearLocalDocument === 'function') window.CommentMasterWord.clearLocalDocument();
   if (window.CommentMasterWord && typeof window.CommentMasterWord.clearComparisonState === 'function') window.CommentMasterWord.clearComparisonState();
   renderToolQueue('binder'); renderToolQueue('convert'); renderToolQueue('batch');
   $('inspector-results').innerHTML = '';
@@ -2629,6 +2767,14 @@ async function clearLocalWorkspace() {
   await closePdfDocument(true);
   if (pdfState.ocrWorker) { try { await pdfState.ocrWorker.worker.terminate(); } catch (_) {} pdfState.ocrWorker = null; }
   app.urls.forEach((url) => URL.revokeObjectURL(url)); app.urls.clear();
+  app.pickerHandles.clear();
+  document.querySelectorAll('input[type="file"]').forEach((input) => { input.value = ''; });
+  $('batch-download-zip').disabled = true;
+  $('result-content').innerHTML = '';
+  if ($('result-dialog').open) $('result-dialog').close();
+  $('clean-word-preview').innerHTML = '';
+  clearError();
+  switchRoute('home');
   showStatus('Local workspace cleared. No document archive was retained.');
 }
 

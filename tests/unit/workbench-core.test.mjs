@@ -29,7 +29,7 @@ function localFile(name, size = 1, type = '') {
 }
 
 test('workbench version and format detection remain stable', () => {
-  assert.equal(WORKBENCH_VERSION, '7.1.0');
+  assert.equal(WORKBENCH_VERSION, '7.1.1');
   assert.equal(extensionOf('Case Notes.DOCX'), 'docx');
   assert.equal(extensionOf('archive'), '');
   assert.equal(detectFormat('brief.DOCX'), 'docx');

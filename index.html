@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#243f77">
   <meta name="color-scheme" content="light">
   <link rel="manifest" href="manifest.webmanifest">
-  <title>Comment Master v7.1.0</title>
+  <title>Comment Master v7.1.1</title>
   <style>
 :root {
   color-scheme: light;
@@ -656,7 +656,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
 (function () {
   'use strict';
 
-  const VERSION = '7.1.0';
+  const VERSION = '7.1.1';
   const WML_TRANSITIONAL = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
   const WML_STRICT = 'http://purl.oclc.org/ooxml/wordprocessingml/main';
   const WML_NAMESPACES = new Set([WML_TRANSITIONAL, WML_STRICT]);
@@ -757,7 +757,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     bindEvents();
     renderCombineReviews();
     switchTab('overview');
-    setStatus('Ready. Open a DOCX to begin.', true);
+    setStatus('Ready. Choose a file to begin.', true);
     updateDocumentButtons();
     if (location.hash === '#test') exposeTestApi();
   }
@@ -1231,6 +1231,14 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
 
   async function loadFile(file) {
     if (!file) return;
+    if (state.doc && state.doc.sourceFile === file) {
+      state.loadToken += 1;
+      ui.file.value = '';
+      clearError();
+      setBusy(false);
+      setStatus(`Using ${state.doc.fileName}, including current in-memory edits.`, true);
+      return;
+    }
     if (hasUnsavedChanges() && !confirm('Discard unsaved changes and open another document?')) { ui.file.value = ''; return; }
     const token = ++state.loadToken;
     setBusy(true, `Opening ${file.name}…`);
@@ -1293,7 +1301,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     const wNs = mainDoc.documentElement.namespaceURI;
     if (!WML_NAMESPACES.has(wNs)) throw new Error(`Unsupported WordprocessingML namespace: ${wNs || '(none)'}.`);
     const candidate = {
-      zip, originalBytes: bytes.slice(0), fileName: file.name, baseName: safeBaseName(file.name), token: state.documentToken + 1,
+      zip, originalBytes: bytes.slice(0), sourceFile: file, fileName: file.name, baseName: safeBaseName(file.name), token: state.documentToken + 1,
       xmlDocs, xmlText, modifiedParts: new Set(), parts: [], storyParts: [], commentParts: [], items: [], itemByUid: new Map(),
       relationships: [], externalLinks: [], findings: [], metadata: {}, stats: {}, wNs, strict: wNs === WML_STRICT, mainPart,
       entryNames: names, entryNameSet: makeEntryNameSet(names), lastOutputBlob: null
@@ -1412,10 +1420,10 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
   }
 
   function closeDocument(force = false) {
-    if (!state.doc) return;
-    if (!force && hasUnsavedChanges() && !confirm('Close this document and discard unsaved changes?')) return;
+    if (!force && state.doc && hasUnsavedChanges() && !confirm('Close this document and discard unsaved changes?')) return;
     cancelExternalLinkChecks();
     state.loadToken += 1;
+    if (!state.doc) { clearError(); ui.file.value = ''; ui.busyLabel.textContent = 'Working…'; setBusy(false); return; }
     state.doc = null;
     state.selected.clear();
     state.itemByUid.clear();
@@ -1429,18 +1437,50 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     state.lastSavedBlob = null;
     state.lastRegexRows = [];
     state.textEditOriginals.clear();
+    clearDocumentUi();
     comparisonState.reviews = comparisonState.reviews.filter((entry) => entry.type !== 'current');
     ui.workspace.hidden = true;
     ui.landing.hidden = false;
     ui.filePill.hidden = true;
     ui.filePill.textContent = 'No document';
     clearError();
-    setStatus('Ready. Open a DOCX to begin.', true);
+    setStatus('Ready. Choose a file to begin.', true);
+    setBusy(false);
     updateDocumentButtons();
     renderComparisonSources();
     renderCombineReviews();
     ui.browse.focus();
     window.dispatchEvent(new CustomEvent('commentmaster:word-closed'));
+  }
+
+  function clearDocumentUi() {
+    resetPerDocumentControls();
+    [ui.tableHead, ui.tableBody, ui.relBody, ui.forBody, ui.partSelect, ui.ghostList,
+      ui.batchFromAuthor, ui.homeTargetAuthor, ui.quickTargetAuthor].forEach((element) => {
+      if (element) element.replaceChildren();
+    });
+    [ui.metaCreator, ui.metaLastMod, ui.metaCreated, ui.metaModified, ui.metaTime, ui.metaRevision].forEach((element) => {
+      if (element) element.value = '';
+    });
+    if (ui.partPreview) ui.partPreview.textContent = '';
+    if (ui.ghostSelection) ui.ghostSelection.textContent = 'Choose a paragraph.';
+    if (ui.linksSummary) ui.linksSummary.textContent = 'No document is open.';
+    ui.file.value = '';
+    ui.busyLabel.textContent = 'Working…';
+    setText('overview-filename', 'Document overview');
+    setText('overview-summary', 'Open a DOCX to review its contents.');
+    setText('overview-filesize', '0 B');
+    setText('overview-authors', 'None');
+    const authors = document.getElementById('overview-authors');
+    if (authors) authors.title = 'None';
+    setText('overview-link-health', '0 / Off');
+    ['stat-comments', 'stat-ins', 'stat-del', 'stat-other', 'stat-authors', 'overview-pages',
+      'overview-words', 'overview-comments', 'overview-revisions'].forEach((id) => setText(id, '0'));
+    setText('review-count', '0 shown');
+    setText('selected-count', '0 selected');
+    setText('page-status', 'Page 1 of 1');
+    setText('home-count', '0 matching items');
+    setText('quick-count', '0 matching items');
   }
 
   function findWordElements(root, local, docState) {
@@ -3639,6 +3679,9 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
         } else if (action.type === 'insert') {
           const revisedModel = plan.revisedModels[action.revisedIndex];
           if (!revisedModel.simple) throw new Error(`A structurally complex paragraph was inserted in ${partLabel(path)} and cannot be redlined safely. Simplify that paragraph or compare it in Word.`);
+          if (revisedModel.containerKey && revisedModel.containerKey !== 'body' && !baseModels.some((model) => model.containerKey === revisedModel.containerKey)) {
+            throw new Error(`A paragraph was inserted into a new structural container in ${partLabel(path)} and cannot be redlined safely. Compare that document in Word.`);
+          }
           const boundary = Math.max(0, lastBaseIndex + 1);
           if (!inserted.has(boundary)) inserted.set(boundary, []);
           inserted.get(boundary).push({ plan, revisedModel });
@@ -3695,12 +3738,19 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
 
     Array.from(inserted.keys()).sort((a, b) => a - b).forEach((boundary) => {
       const groups = groupParagraphVariants(inserted.get(boundary));
+      const priorInsertions = new Map();
       groups.forEach((group) => {
-        const node = createInsertedParagraph(group[0].revisedModel, group.map((entry) => entry.plan.review.author), baseCandidate, tracker, baseCandidate.xmlDocs.get(path));
-        if (!insertParagraphAtBoundary(node, group[0].revisedModel, baseModels, boundary, baseCandidate.xmlDocs.get(path), baseCandidate)) {
+        const model = group[0].revisedModel;
+        const node = createInsertedParagraph(model, group.map((entry) => entry.plan.review.author), baseCandidate, tracker, baseCandidate.xmlDocs.get(path));
+        const prior = priorInsertions.get(model.containerKey);
+        const placed = prior && prior.parentNode
+          ? (prior.parentNode.insertBefore(node, prior.nextSibling), true)
+          : insertParagraphAtBoundary(node, model, baseModels, boundary, baseCandidate.xmlDocs.get(path), baseCandidate);
+        if (!placed) {
           stats.skippedParts += 1;
           return;
         }
+        priorInsertions.set(model.containerKey, node);
         group.forEach((entry) => entry.plan.review.paragraphMap.set(entry.revisedModel.node, node));
         stats.insertedParagraphs += 1;
         changed = true;
@@ -3731,9 +3781,16 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
   function groupParagraphVariants(entries) {
     const groups = [];
     const bySignature = new Map();
+    const occurrencesByReview = new Map();
     entries.forEach((entry) => {
       const model = entry.revisedModel;
-      const signature = `${model.containerKey}\u0000${model.text}\u0000${model.tokenSignature}`;
+      const modelSignature = `${model.containerKey}\u0000${model.text}\u0000${model.tokenSignature}`;
+      const review = entry.plan.review;
+      if (!occurrencesByReview.has(review)) occurrencesByReview.set(review, new Map());
+      const occurrences = occurrencesByReview.get(review);
+      const occurrence = occurrences.get(modelSignature) || 0;
+      occurrences.set(modelSignature, occurrence + 1);
+      const signature = `${modelSignature}\u0000${occurrence}`;
       if (!bySignature.has(signature)) { const group = []; bySignature.set(signature, group); groups.push(group); }
       bySignature.get(signature).push(entry);
     });
@@ -4583,6 +4640,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     close: () => closeDocument(),
     clearLocalDocument: () => closeDocument(true),
     hasDocument: () => Boolean(state.doc),
+    isCurrentFile: (file) => Boolean(state.doc && state.doc.sourceFile === file),
     snapshot: () => testSnapshot(),
     currentDocumentFile: async () => {
       requireFile();
@@ -4636,7 +4694,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     <div class="brand-mark" aria-hidden="true">CM</div>
     <div>
       <h1>Comment Master</h1>
-      <p>Private document workbench <span class="version">v7.1.0</span></p>
+      <p>Private document workbench <span class="version">v7.1.1</span></p>
     </div>
   </div>
   <div class="header-actions">
@@ -4758,7 +4816,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     <div id="home-drop-zone" class="home-drop" aria-describedby="home-drop-help">
       <div class="home-drop-copy">
         <div class="home-drop-mark" aria-hidden="true">FILES</div>
-        <div><h3>Drop files here</h3><p id="home-drop-help">Open one file and start working, or choose several for comparison, commentary consolidation, binders, conversion, or batch work.</p></div>
+        <div><h3>Drop files here</h3><p id="home-drop-help">Choose one file to start, or several to compare, combine, or process together.</p></div>
       </div>
       <div class="home-drop-actions"><button class="btn btn-primary" data-wb-action="open-files" type="button">Choose files</button></div>
     </div>
@@ -4770,7 +4828,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     </section>
 
     <div class="home-shortcuts" aria-label="Other ways to start">
-      <div><strong>Need something else?</strong><span>Comparison and specialist utilities stay available without crowding the main workflow.</span></div>
+      <div><strong>Need something else?</strong><span>Compare documents or find another tool.</span></div>
       <div class="button-row"><button class="btn btn-light" data-wb-action="open-compare" type="button">Compare / Combine</button><button class="btn btn-light" data-route-target="tools" type="button">More Tools</button></div>
     </div>
   </section>
@@ -5147,7 +5205,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
 
 <dialog id="progress-dialog" class="workbench-dialog privacy-dialog" aria-labelledby="progress-title"><div class="dialog-heading"><div><h2 id="progress-title">Working locally</h2><p id="progress-subtitle">Preparing the operation.</p></div></div><div class="dialog-body"><div class="job-progress"><progress id="job-progress" max="100" value="0"></progress><div class="job-progress-row"><span id="job-progress-label">Starting…</span><span id="job-progress-value">0%</span></div></div><div class="button-row" style="justify-content:flex-end;margin-top:16px"><button id="job-cancel" class="btn btn-danger" data-wb-action="cancel-job" type="button">Cancel</button></div></div></dialog>
 
-<footer class="app-footer">Comment Master v7.1.0 · Document processing stays in your browser · <button class="btn btn-light" data-wb-action="privacy" type="button">Privacy</button> · <a href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">Third-party notices</a></footer>
+<footer class="app-footer">Comment Master v7.1.1 · Document processing stays in your browser · <button class="btn btn-light" data-wb-action="privacy" type="button">Privacy</button> · <a href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">Third-party notices</a></footer>
 
 </body>
 </html>

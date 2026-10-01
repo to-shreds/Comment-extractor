@@ -1,7 +1,7 @@
 import {
-  PDFArray, PDFDict, PDFDocument, PDFName, PDFString, PDFHexString,
+  PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber, PDFString, PDFHexString,
   PDFButton, PDFCheckBox, PDFDropdown, PDFOptionList, PDFRadioGroup, PDFSignature,
-  PDFTextField, StandardFonts, TextRenderingMode, degrees, popGraphicsState,
+  PDFTextField, StandardFonts, TextRenderingMode, concatTransformationMatrix, degrees, popGraphicsState,
   pushGraphicsState, rgb, setTextRenderingMode
 } from '../vendor/pdf-lib/pdf-lib.esm.min.js';
 import { humanBytes, normalizeRotation, parsePageRanges, yieldToMain } from './workbench-core.mjs';
@@ -453,10 +453,28 @@ function containsJavaScriptAction(document, value, state = { remaining: 256, see
 
 function annotationHasExternalAction(document, annotation) {
   if (annotation.has(PDFName.of('URI'))) return true;
-  const action = resolvePdfDict(document, annotation.get(PDFName.of('A')));
-  if (!action) return false;
-  const subtype = resolvedPdfName(document, action.get(PDFName.of('S')));
-  return new Set(['/URI', '/GoToR', '/Launch', '/SubmitForm', '/ImportData']).has(subtype) || action.has(PDFName.of('URI'));
+  return containsExternalAction(document, annotation.get(PDFName.of('A')))
+    || containsExternalAction(document, annotation.get(PDFName.of('AA')));
+}
+
+function containsExternalAction(document, value) {
+  const externalTypes = new Set(['/URI', '/GoToR', '/Launch', '/SubmitForm', '/ImportData']);
+  const pending = [value];
+  const seen = new Set();
+  while (pending.length) {
+    const object = resolvePdfObject(document, pending.pop());
+    if (!object || seen.has(object)) continue;
+    seen.add(object);
+    if (object instanceof PDFArray) { for (const item of object.asArray()) pending.push(item); }
+    else if (object instanceof PDFDict) {
+      if (externalTypes.has(resolvedPdfName(document, object.get(PDFName.of('S')))) || object.has(PDFName.of('URI'))) return true;
+      // Additional-action dictionaries contain event keys; action dictionaries
+      // continue through /Next. Avoid following page destinations into resources.
+      if (object.has(PDFName.of('S'))) pending.push(object.get(PDFName.of('Next')));
+      else for (const key of object.keys()) pending.push(object.get(key));
+    }
+  }
+  return false;
 }
 
 function safeDate(value) {
@@ -534,6 +552,7 @@ export async function sanitizePdf(bytes, options = {}) {
     document.catalog.delete(PDFName.of('Metadata'));
     const trailer = document.context.trailerInfo;
     if (trailer) trailer.Info = undefined;
+    stripEmbeddedMetadata(document);
     summary.push('Document metadata');
   }
   if (options.javascript || options.actions) {
@@ -572,12 +591,127 @@ export async function sanitizePdf(bytes, options = {}) {
   if (options.annotations) summary.push('Comments and annotations');
   if (options.externalLinks) summary.push('External link actions');
 
+  prepareInternalDestinationsForCopy(document);
   const clean = await PDFDocument.create({ updateMetadata: false });
   const pages = await clean.copyPages(document, document.getPageIndices());
   pages.forEach((page) => clean.addPage(page));
+  bindCopiedInternalDestinations(clean);
   if (preservedMetadata) applyDocumentMetadata(clean, preservedMetadata);
   summary.push('Unreferenced objects through a fresh document rebuild');
   return { bytes: await pdfBytes(clean), removed: summary, rebuilt: true };
+}
+
+// Copying a destination page reference can import a second, detached page.
+// Resolve names and use page indices during copying, then bind each destination
+// to the actual page reference in the new document.
+function prepareInternalDestinationsForCopy(document) {
+  const pages = document.getPages();
+  const pageIndices = new Map(pages.map((page, index) => [String(page.ref), index]));
+  const named = collectNamedDestinations(document);
+  rewriteAnnotationDestinations(document, (value) => {
+    let destination = resolvePdfObject(document, value);
+    const seen = new Set();
+    while (destination && !(destination instanceof PDFArray) && !seen.has(destination)) {
+      seen.add(destination);
+      if (destination instanceof PDFDict) destination = resolvePdfObject(document, destination.get(PDFName.of('D')));
+      else if (destination instanceof PDFName || destination instanceof PDFString || destination instanceof PDFHexString) {
+        destination = resolvePdfObject(document, named.get(destination.decodeText()));
+      } else return undefined;
+    }
+    if (!(destination instanceof PDFArray) || !destination.size()) return undefined;
+    const target = destination.get(0);
+    const resolvedTarget = resolvePdfObject(document, target);
+    const index = pageIndices.get(String(target)) ?? (resolvedTarget instanceof PDFNumber ? resolvedTarget.asNumber() : undefined);
+    if (!Number.isInteger(index) || index < 0 || index >= pages.length) return undefined;
+    const explicit = destination.clone(document.context);
+    explicit.set(0, document.context.obj(index));
+    return explicit;
+  });
+}
+
+function bindCopiedInternalDestinations(document) {
+  const pages = document.getPages();
+  rewriteAnnotationDestinations(document, (value) => {
+    const destination = resolvePdfArray(document, value);
+    if (!destination || !destination.size()) return undefined;
+    const index = resolvePdfObject(document, destination.get(0));
+    if (!(index instanceof PDFNumber) || !Number.isInteger(index.asNumber()) || !pages[index.asNumber()]) return undefined;
+    destination.set(0, pages[index.asNumber()].ref);
+    return destination;
+  });
+}
+
+function collectNamedDestinations(document) {
+  const destinations = new Map();
+  const legacy = resolvePdfDict(document, document.catalog.get(PDFName.of('Dests')));
+  if (legacy) for (const key of legacy.keys()) destinations.set(key.decodeText(), legacy.get(key));
+  const names = resolvePdfDict(document, document.catalog.get(PDFName.of('Names')));
+  const pending = [names && names.get(PDFName.of('Dests'))];
+  const seen = new Set();
+  while (pending.length) {
+    const node = resolvePdfDict(document, pending.pop());
+    if (!node || seen.has(node)) continue;
+    seen.add(node);
+    const entries = resolvePdfArray(document, node.get(PDFName.of('Names')));
+    if (entries) for (let index = 0; index + 1 < entries.size(); index += 2) {
+      const key = resolvePdfObject(document, entries.get(index));
+      if (key instanceof PDFString || key instanceof PDFHexString || key instanceof PDFName) destinations.set(key.decodeText(), entries.get(index + 1));
+    }
+    const kids = resolvePdfArray(document, node.get(PDFName.of('Kids')));
+    if (kids) for (const child of kids.asArray()) pending.push(child);
+  }
+  return destinations;
+}
+
+function rewriteAnnotationDestinations(document, rewrite) {
+  const pendingActions = [];
+  for (const page of document.getPages()) {
+    const annotations = resolvePdfArray(document, page.node.get(PDFName.of('Annots')));
+    if (!annotations) continue;
+    for (const ref of annotations.asArray()) {
+      const annotation = resolvePdfDict(document, ref);
+      if (!annotation) continue;
+      const replacement = rewrite(annotation.get(PDFName.of('Dest')));
+      if (replacement) annotation.set(PDFName.of('Dest'), replacement);
+      pendingActions.push(annotation.get(PDFName.of('A')), annotation.get(PDFName.of('AA')));
+    }
+  }
+  const seen = new Set();
+  while (pendingActions.length) {
+    const action = resolvePdfObject(document, pendingActions.pop());
+    if (!action || seen.has(action)) continue;
+    seen.add(action);
+    if (action instanceof PDFArray) {
+      for (const item of action.asArray()) pendingActions.push(item);
+    } else if (action instanceof PDFDict) {
+      const type = resolvedPdfName(document, action.get(PDFName.of('S')));
+      if (type === '/GoTo') {
+        const replacement = rewrite(action.get(PDFName.of('D')));
+        if (replacement) action.set(PDFName.of('D'), replacement);
+      }
+      if (type) pendingActions.push(action.get(PDFName.of('Next')));
+      else for (const key of action.keys()) pendingActions.push(action.get(key));
+    }
+  }
+}
+
+function stripEmbeddedMetadata(document) {
+  const pending = document.context.enumerateIndirectObjects().map(([_reference, object]) => object);
+  const seen = new Set();
+  const metadataKeys = ['Metadata', 'PieceInfo', 'LastModified', 'Thumb'];
+  while (pending.length) {
+    const object = resolvePdfObject(document, pending.pop());
+    if (!object || seen.has(object)) continue;
+    seen.add(object);
+    if (object instanceof PDFDict) {
+      for (const key of metadataKeys) object.delete(PDFName.of(key));
+      for (const key of object.keys()) pending.push(object.get(key));
+    } else if (object instanceof PDFArray) {
+      for (const item of object.asArray()) pending.push(item);
+    } else if (object.dict instanceof PDFDict) {
+      pending.push(object.dict);
+    }
+  }
 }
 
 function captureDocumentMetadata(document) {
@@ -620,15 +754,15 @@ function sanitizePage(document, page, options) {
   if (stripActions) page.node.delete(PDFName.of('AA'));
   const annots = resolvePdfArray(document, page.node.get(PDFName.of('Annots')));
   if (!annots) return;
-  if (options.annotations && options.externalLinks) { page.node.delete(PDFName.of('Annots')); return; }
-  const commentTypes = new Set(['/Text', '/FreeText', '/Highlight', '/Underline', '/Squiggly', '/StrikeOut', '/Stamp', '/Ink', '/Popup', '/Caret', '/FileAttachment', '/Sound']);
   const retained = annots.asArray().filter((ref) => {
     const dict = resolvePdfDict(document, ref);
-    if (!dict) return true;
+    if (!dict) return !(options.annotations || options.externalLinks);
     const subtype = resolvedPdfName(document, dict.get(PDFName.of('Subtype')));
-    if (options.annotations && commentTypes.has(subtype)) return false;
+    // Shape, multimedia, and future annotation types can also store comments.
+    // Form widgets were flattened above; retain links unless separately removed.
+    if (options.annotations && subtype !== '/Link') return false;
     if (options.attachments && subtype === '/FileAttachment') return false;
-    if (options.externalLinks && subtype === '/Link') return false;
+    if (options.externalLinks && subtype === '/Link' && annotationHasExternalAction(document, dict)) return false;
     if (stripActions) { dict.delete(PDFName.of('A')); dict.delete(PDFName.of('AA')); }
     if (options.metadata) {
       for (const key of ['M', 'CreationDate', 'T', 'Subj', 'NM']) dict.delete(PDFName.of(key));
@@ -667,8 +801,11 @@ export async function rasterPagesToPdf(pages, options = {}, progress = () => {},
     page.drawImage(image, { x: 0, y: 0, width, height });
     if (source.searchText) {
       const normalized = String(source.searchText).replace(/[\u0000-\u001f]+/g, ' ').slice(0, 250000);
-      const lines = normalized.match(/.{1,120}(?:\s|$)/g) || [normalized];
-      lines.slice(0, 2000).forEach((line, lineIndex) => page.drawText(line.trim(), { x: 2, y: Math.max(2, height - 8 - lineIndex * 4), size: 3, font, opacity: 0 }));
+      const lines = chunkSearchText(normalized, 120);
+      lines.forEach((line, lineIndex) => {
+        const text = encodableText(font, line);
+        if (text) page.drawText(text, { x: 2, y: Math.max(2, height - 8 - lineIndex * 4), size: 3, font, opacity: 0 });
+      });
     }
     progress({ phase: 'rebuilding', current: index + 1, total: pages.length });
     await yieldToMain(signal);
@@ -686,27 +823,28 @@ export async function overlaySearchText(bytes, pageText, progress = () => {}, si
     if (!page) continue;
     const data = entry && typeof entry === 'object' ? entry : { text: entry, runs: [] };
     const runs = Array.isArray(data.runs) ? data.runs : [];
-    page.pushOperators(pushGraphicsState(), setTextRenderingMode(TextRenderingMode.Invisible));
+    const display = displayedPageCoordinates(page);
+    page.pushOperators(pushGraphicsState(), concatTransformationMatrix(...display.matrix), setTextRenderingMode(TextRenderingMode.Invisible));
     if (runs.length && data.rasterWidth && data.rasterHeight) {
-      const sx = page.getWidth() / Number(data.rasterWidth);
-      const sy = page.getHeight() / Number(data.rasterHeight);
+      const sx = display.width / Number(data.rasterWidth);
+      const sy = display.height / Number(data.rasterHeight);
       runs.slice(0, 10000).forEach((run) => {
         const text = encodableText(font, run.text);
         if (!text) return;
         const height = Math.max(1, (Number(run.y1) - Number(run.y0)) * sy);
         page.drawText(text, {
           x: Math.max(0, Number(run.x0) * sx),
-          y: Math.max(0, page.getHeight() - Number(run.y1) * sy),
+          y: Math.max(0, display.height - Number(run.y1) * sy),
           size: height, font, color: rgb(0, 0, 0),
           maxWidth: Math.max(1, (Number(run.x1) - Number(run.x0)) * sx)
         });
       });
     } else {
       const normalized = String(data.text || '').replace(/[\u0000-\u001f]+/g, ' ').slice(0, 250000);
-      const chunks = normalized.match(/.{1,100}(?:\s|$)/g) || [normalized];
-      chunks.slice(0, 2500).forEach((chunk, lineIndex) => {
+      const chunks = chunkSearchText(normalized, 100);
+      chunks.forEach((chunk, lineIndex) => {
         const text = encodableText(font, chunk.trim());
-        if (text) page.drawText(text, { x: 2, y: Math.max(2, page.getHeight() - 5 - (lineIndex % 500) * 1.2), size: 1, font, color: rgb(0, 0, 0), maxWidth: Math.max(10, page.getWidth() - 4) });
+        if (text) page.drawText(text, { x: 2, y: Math.max(2, display.height - 5 - (lineIndex % 500) * 1.2), size: 1, font, color: rgb(0, 0, 0), maxWidth: Math.max(10, display.width - 4) });
       });
     }
     page.pushOperators(popGraphicsState());
@@ -714,6 +852,43 @@ export async function overlaySearchText(bytes, pageText, progress = () => {}, si
     await yieldToMain(signal);
   }
   return pdfBytes(document);
+}
+
+// PDF.js OCR coordinates describe the visible, rotated crop, while PDF content
+// operators use the original page coordinate system.
+function displayedPageCoordinates(page) {
+  const media = page.getMediaBox();
+  const crop = page.getCropBox();
+  const cropX = Math.max(media.x, crop.x);
+  const cropY = Math.max(media.y, crop.y);
+  const cropWidth = Math.min(media.x + media.width, crop.x + crop.width) - cropX;
+  const cropHeight = Math.min(media.y + media.height, crop.y + crop.height) - cropY;
+  const validCrop = cropWidth > 0 && cropHeight > 0;
+  const x = validCrop ? cropX : media.x;
+  const y = validCrop ? cropY : media.y;
+  const width = validCrop ? cropWidth : media.width;
+  const height = validCrop ? cropHeight : media.height;
+  const rotation = normalizeRotation(page.getRotation().angle);
+  const matrix = rotation === 90 ? [0, 1, -1, 0, x + width, y]
+    : rotation === 180 ? [-1, 0, 0, -1, x + width, y + height]
+    : rotation === 270 ? [0, -1, 1, 0, x, y + height]
+    : [1, 0, 0, 1, x, y];
+  return { width: rotation % 180 ? height : width, height: rotation % 180 ? width : height, matrix };
+}
+
+function chunkSearchText(text, length) {
+  const chunks = [];
+  let remaining = String(text);
+  while (remaining.length) {
+    let end = Math.min(length, remaining.length);
+    if (end < remaining.length) {
+      const space = remaining.slice(0, end + 1).lastIndexOf(' ');
+      if (space >= length / 2) end = space + 1;
+    }
+    chunks.push(remaining.slice(0, end));
+    remaining = remaining.slice(end);
+  }
+  return chunks;
 }
 
 export async function replacePagesWithRasters(bytes, replacements, progress = () => {}, signal) {

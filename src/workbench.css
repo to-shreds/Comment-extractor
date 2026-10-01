@@ -318,3 +318,21 @@
   .nav-toggle { min-width: 54px; }
 }
 
+
+/* Keep the main file picker prominent and the small-screen header compact. */
+body[data-route="home"] .header-actions > [data-wb-action="open-files"] { display: none; }
+@media (max-width: 560px) {
+  .header-actions > [data-wb-action="open-files"] { display: none; }
+  .header-actions .header-pdf-actions { display: none !important; }
+  .brand-block h1 { font-size: 18px; }
+  .brand-mark { width: 36px; height: 36px; border-radius: 10px; }
+  .brand-block { gap: 8px; }
+  .app-header { flex-wrap: nowrap; }
+}
+@media (max-width: 380px) {
+  .brand-mark { display: none; }
+  .brand-block h1 { font-size: 16px; }
+}
+@media (max-width: 720px) {
+  .pdf-shell[data-active-tab="export"] .pdf-side-panel { order: -1; }
+}

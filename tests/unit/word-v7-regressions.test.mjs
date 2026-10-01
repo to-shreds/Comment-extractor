@@ -67,7 +67,7 @@ function loadApplicationHelpers() {
   const JSZip = zipContext.window.JSZip;
   assert.ok(JSZip, 'Embedded JSZip did not load');
 
-  let application = scriptContaining("const VERSION = '7.1.0'");
+  let application = scriptContaining('async function buildComparisonOutput');
   const marker = "window.addEventListener('DOMContentLoaded', init, { once: true });";
   assert.ok(application.includes(marker), 'Application test-hook marker is missing');
   application = application.replace(marker, `
@@ -279,6 +279,17 @@ test('changed or inserted complex paragraphs fail closed instead of flattening c
     runtime.helpers.buildComparisonOutput(drawingBase, [{ candidate: drawingReview, author: 'Reviewer', sourceName: drawingReview.fileName }]),
     /structurally complex paragraph was inserted.*cannot be redlined safely/i
   );
+
+  const tableBase = await makeCandidate(runtime.JSZip, 'Table base.docx', {
+    'word/document.xml': documentXml(paragraph('Existing text'))
+  });
+  const tableReview = await makeCandidate(runtime.JSZip, 'Table review.docx', {
+    'word/document.xml': documentXml(`${paragraph('Existing text')}<w:tbl><w:tr><w:tc>${paragraph('New table cell')}</w:tc></w:tr></w:tbl>`)
+  });
+  await assert.rejects(
+    runtime.helpers.buildComparisonOutput(tableBase, [{ candidate: tableReview, author: 'Reviewer', sourceName: tableReview.fileName }]),
+    /new structural container.*cannot be redlined safely/i
+  );
 });
 
 test('comparison output returns paragraph-aligned preview rows', async () => {
@@ -296,6 +307,104 @@ test('comparison output returns paragraph-aligned preview rows', async () => {
   assert.deepEqual(Array.from(result.preview.revised), ['Opening', 'Inserted', 'Closing']);
   assert.deepEqual(Array.from(result.preview.rows, (row) => row.type), ['equal', 'insert', 'equal']);
   assert.equal(result.stats.insertedParagraphs, 1);
+});
+
+test('comparison preserves the order of multiple trailing inserted paragraphs', async () => {
+  const base = await makeCandidate(runtime.JSZip, 'Base.docx', {
+    'word/document.xml': documentXml(paragraph('Original opening'))
+  });
+  const reviewed = await makeCandidate(runtime.JSZip, 'Reviewed.docx', {
+    'word/document.xml': documentXml(['Original opening', 'First addition', 'Second addition', 'Third addition'].map((text) => paragraph(text)).join(''))
+  });
+  const result = await runtime.helpers.buildComparisonOutput(base, [{ candidate: reviewed, author: 'Reviewer' }]);
+  const output = await runtime.JSZip.loadAsync(await result.blob.arrayBuffer(), { checkCRC32: true });
+  const doc = parseXml(await output.file('word/document.xml').async('string'));
+  const text = Array.from(doc.getElementsByTagNameNS(W, 'p'), (node) => Array.from(node.getElementsByTagNameNS(W, 't'), (run) => run.textContent).join(''));
+
+  assert.deepEqual(text, ['Original opening', 'First addition', 'Second addition', 'Third addition']);
+});
+
+test('comparison retains repeated inserted paragraphs instead of deduplicating their occurrences', async () => {
+  const base = await makeCandidate(runtime.JSZip, 'Base.docx', {
+    'word/document.xml': documentXml(`${paragraph('Opening')}${paragraph('Closing')}`)
+  });
+  const reviewed = await makeCandidate(runtime.JSZip, 'Reviewed.docx', {
+    'word/document.xml': documentXml(['Opening', 'Repeated addition', 'Repeated addition', 'Closing'].map((text) => paragraph(text)).join(''))
+  });
+  const result = await runtime.helpers.buildComparisonOutput(base, [{ candidate: reviewed, author: 'Reviewer' }]);
+  const output = await runtime.JSZip.loadAsync(await result.blob.arrayBuffer(), { checkCRC32: true });
+  const doc = parseXml(await output.file('word/document.xml').async('string'));
+  const text = Array.from(doc.getElementsByTagNameNS(W, 'p'), (node) => Array.from(node.getElementsByTagNameNS(W, 't'), (run) => run.textContent).join(''));
+
+  assert.deepEqual(text, ['Opening', 'Repeated addition', 'Repeated addition', 'Closing']);
+  assert.equal(result.stats.insertedParagraphs, 2);
+});
+
+test('combined commentary shares identical reviewer proposals while retaining repeated occurrences', async () => {
+  const body = (texts) => documentXml(texts.map((text) => paragraph(text)).join(''));
+  const base = await makeCandidate(runtime.JSZip, 'Base.docx', { 'word/document.xml': body(['Opening']) });
+  const first = await makeCandidate(runtime.JSZip, 'First.docx', { 'word/document.xml': body(['Opening', 'Repeat', 'Repeat']) });
+  const second = await makeCandidate(runtime.JSZip, 'Second.docx', { 'word/document.xml': body(['Opening', 'Repeat', 'Repeat']) });
+  const result = await runtime.helpers.buildComparisonOutput(base, [
+    { candidate: first, author: 'Alpha Reviewer' },
+    { candidate: second, author: 'Beta Reviewer' }
+  ]);
+  const output = await runtime.JSZip.loadAsync(await result.blob.arrayBuffer(), { checkCRC32: true });
+  const doc = parseXml(await output.file('word/document.xml').async('string'));
+  const text = Array.from(doc.getElementsByTagNameNS(W, 'p'), (node) => Array.from(node.getElementsByTagNameNS(W, 't'), (run) => run.textContent).join(''));
+
+  assert.deepEqual(text, ['Opening', 'Repeat', 'Repeat']);
+  assert.equal(result.stats.insertedParagraphs, 2);
+  const insertions = Array.from(doc.getElementsByTagNameNS(W, 'ins'));
+  assert.ok(insertions.length > 0);
+  assert.ok(insertions.every((node) => node.getAttributeNS(W, 'author') === 'Alpha Reviewer; Beta Reviewer'));
+});
+
+test('deterministic comparison stress preserves revised paragraph content across insertions, deletions, and replacements', async () => {
+  let seed = 742;
+  const random = (limit) => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed % limit;
+  };
+  const body = (texts) => documentXml(texts.map((text) => paragraph(text)).join(''));
+  for (let fixture = 0; fixture < 80; fixture += 1) {
+    const original = Array.from({ length: random(12) }, (_, index) => `Clause ${index} sample ${random(5)}`);
+    const revised = original.slice();
+    for (let edit = 0; edit < 8; edit += 1) {
+      const position = random(revised.length + 1);
+      const action = random(4);
+      if (action === 0) revised.splice(position, 0, `New clause ${random(5)}`);
+      else if (action === 1 && position < revised.length) revised.splice(position, 1);
+      else if (action === 2 && position < revised.length) revised[position] += ' reviewed';
+      else revised.splice(position, 0, 'Repeated clause');
+    }
+    const base = await makeCandidate(runtime.JSZip, 'Base.docx', { 'word/document.xml': body(original) });
+    const review = await makeCandidate(runtime.JSZip, 'Review.docx', { 'word/document.xml': body(revised) });
+    const result = await runtime.helpers.buildComparisonOutput(base, [{ candidate: review, author: 'Stress Reviewer' }]);
+    const output = await runtime.JSZip.loadAsync(await result.blob.arrayBuffer(), { checkCRC32: true });
+    const doc = parseXml(await output.file('word/document.xml').async('string'));
+    const visible = Array.from(doc.getElementsByTagNameNS(W, 'p'))
+      .filter((node) => !directWordChild(node, 'pPr')?.getElementsByTagNameNS(W, 'del').length)
+      .map((node) => Array.from(node.getElementsByTagNameNS(W, 't'), (run) => run.textContent).join(''));
+    assert.deepEqual(visible, revised, `Stress fixture ${fixture} lost or reordered revised content`);
+  }
+});
+
+test('large repetitive documents retain every paragraph and minimal tracked insertions', async () => {
+  const original = Array.from({ length: 2000 }, () => 'Repeated boilerplate clause.');
+  const revised = original.concat(['First final clause.', 'First final clause.', 'Last final clause.']);
+  const body = (texts) => documentXml(texts.map((text) => paragraph(text)).join(''));
+  const base = await makeCandidate(runtime.JSZip, 'Large base.docx', { 'word/document.xml': body(original) });
+  const review = await makeCandidate(runtime.JSZip, 'Large review.docx', { 'word/document.xml': body(revised) });
+  const result = await runtime.helpers.buildComparisonOutput(base, [{ candidate: review, author: 'Large Reviewer' }]);
+  const output = await runtime.JSZip.loadAsync(await result.blob.arrayBuffer(), { checkCRC32: true });
+  const doc = parseXml(await output.file('word/document.xml').async('string'));
+  const visible = Array.from(doc.getElementsByTagNameNS(W, 'p'), (node) => Array.from(node.getElementsByTagNameNS(W, 't'), (run) => run.textContent).join(''));
+
+  assert.deepEqual(visible, revised);
+  assert.equal(result.stats.insertedParagraphs, 3);
+  assert.equal(result.stats.changedParagraphs, 0);
+  assert.equal(result.stats.deletedParagraphs, 0);
 });
 
 test('an absent reviewed story part does not delete the base story', async () => {

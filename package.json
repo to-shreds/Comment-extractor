@@ -1,7 +1,7 @@
 {
   "name": "comment-master",
   "private": true,
-  "version": "7.1.0",
+  "version": "7.1.1",
   "scripts": {
     "build": "node tools/build.mjs",
     "build:pages": "npm run build && node tools/sync-pages.mjs",

@@ -51,7 +51,7 @@ function installDomCompatibility() {
 
 function testStaticContract() {
   scripts.forEach((script, index) => assert.doesNotThrow(() => new Function(script), `Script ${index + 1} has invalid JavaScript`));
-  assert.match(html, /<title>Comment Master v7\.1\.0<\/title>/);
+  assert.match(html, /<title>Comment Master v7\.1\.1<\/title>/);
   assert.match(html, /data-action="openCompare"/);
   assert.match(html, /data-action="compareDocuments"/);
   assert.match(html, /data-action="compareText"/);
@@ -79,7 +79,7 @@ function loadHelpers() {
   const JSZip = zipContext.window.JSZip;
   assert.ok(JSZip);
 
-  let application = scriptContaining("const VERSION = '7.1.0'");
+  let application = scriptContaining("const VERSION = '7.1.1'");
   const marker = "window.addEventListener('DOMContentLoaded', init, { once: true });";
   application = application.replace(marker, `
     window.__CM_V63_HELPERS__ = Object.freeze({
@@ -327,7 +327,7 @@ async function testExistingCommentDeduplication(helpers, JSZip) {
   await testParagraphInsertionAndDeletion(helpers, JSZip);
   await testStrictWordprocessingMl(helpers, JSZip);
   await testExistingCommentDeduplication(helpers, JSZip);
-  console.log('Comment Master v7.1.0 comparison regression tests passed.');
+  console.log('Comment Master v7.1.1 comparison regression tests passed.');
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;

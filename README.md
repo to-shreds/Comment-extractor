@@ -1,6 +1,6 @@
 # Comment Master
 
-Comment Master v7.1.0 is a private, browser-local document workbench for Word review, PDF work, document comparison, conversion, binders, cleanup, inspection, and batch processing.
+Comment Master v7.1.1 is a private, browser-local document workbench for Word review, PDF work, document comparison, conversion, binders, cleanup, inspection, and batch processing.
 
 The application is a static site. It does not require an installer, a local server, a browser extension, a cloud document-processing service, or a third-party account. Documents are processed in the browser and are not uploaded by Comment Master.
 
@@ -118,10 +118,10 @@ npm run build        # Create the static production site in dist/
 npm run build:pages  # Build and synchronize the committed root Pages runtime
 npm run test:legacy  # Established Word and export regressions
 npm run test:unit    # Core, PDF, privacy, filename, and Word v7 regressions
-npm run test:e2e     # 19 Playwright browser, privacy, offline, and responsive tests
+npm run test:e2e     # Browser workflow, stress, privacy, offline, and responsive tests
 ```
 
-`npm run qa` remains the release contract. On the current branch it performs a production build, the legacy regression suites, 34 Node unit tests, 4 dedicated privacy tests, and 19 Playwright Chromium specifications. Three of the Node tests cover the separately packaged Word add-in reviewer-name helper added after the v7.0.1 workbench release.
+`npm run qa` remains the release contract. On the current branch it performs a production build, the legacy regression suites, 46 Node unit tests, 4 dedicated privacy tests, and 49 Playwright Chromium specifications. Three of the Node tests cover the separately packaged Word add-in reviewer-name helper added after the v7.0.1 workbench release.
 
 Playwright requires its matching Chromium executable. In a new development environment, prepare it with `npx playwright install chromium` before running `npm run qa` or `npm run test:e2e`. The browser suite starts the generated `dist/` site on a loopback-only static QA server and does not change the browser-only production architecture.
 

@@ -4,7 +4,9 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream, PDFString, decodePDFRawStream } from 'pdf-lib';
+import { PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream, PDFString, decodePDFRawStream, degrees } from 'pdf-lib';
+import { getDocument, Util } from 'pdfjs-dist/legacy/build/pdf.mjs';
+
 import {
   CANARY_URL,
   FORM_DROPDOWN_CANARY,
@@ -377,4 +379,160 @@ test('inspection, repair, optimization, and blobs return readable outputs', asyn
   assert.equal(blob.type, 'application/pdf');
   assert.equal(blob.size, optimized.bytes.length);
   await assert.rejects(engine.loadPdf(Uint8Array.of(1, 2, 3, 4)), /could not be read/i);
+});
+
+
+test('comment removal includes shape, redaction, and multimedia annotations without removing links', async () => {
+  const document = await PDFDocument.create({ updateMetadata: false });
+  const page = document.addPage([300, 400]);
+  const types = ['Square', 'Circle', 'Polygon', 'PolyLine', 'Redact', 'Screen', 'RichMedia', '3D', 'Watermark'];
+  const annotations = types.map((subtype) => document.context.register(document.context.obj({
+    Type: 'Annot', Subtype: subtype, Rect: [10, 10, 30, 30], Contents: PDFString.of(`COMMENT_CANARY_${subtype}`)
+  })));
+  annotations.push(document.context.register(document.context.obj({
+    Type: 'Annot', Subtype: 'Link', Rect: [30, 30, 40, 40], A: { S: 'URI', URI: PDFString.of(CANARY_URL) }
+  })));
+  page.node.set(PDFName.of('Annots'), document.context.obj(annotations));
+  const result = await engine.sanitizePdf(await document.save(), { annotations: true });
+  const cleaned = await PDFDocument.load(result.bytes, { updateMetadata: false });
+  for (const subtype of types) assert.equal(decodedPdfContains(cleaned, `COMMENT_CANARY_${subtype}`), false, subtype);
+  assert.equal((await engine.inspectPdfStructure(result.bytes)).externalLinks, 1);
+});
+
+test('external-link removal preserves internal page navigation and removes external action chains', async () => {
+  const document = await PDFDocument.create({ updateMetadata: false });
+  const page = document.addPage([300, 400]);
+  const internal = document.context.register(document.context.obj({
+    Type: 'Annot', Subtype: 'Link', Rect: [10, 10, 30, 30], A: { S: 'GoTo', D: [page.ref, 'Fit'] }
+  }));
+  const chained = document.context.register(document.context.obj({
+    Type: 'Annot', Subtype: 'Link', Rect: [40, 40, 60, 60], A: { S: 'GoTo', D: [page.ref, 'Fit'], Next: { S: 'URI', URI: PDFString.of(CANARY_URL) } }
+  }));
+  page.node.set(PDFName.of('Annots'), document.context.obj([internal, chained]));
+  const original = await document.save();
+  assert.equal((await engine.inspectPdfStructure(original)).externalLinks, 1);
+  for (const options of [{ externalLinks: true }, { externalLinks: true, annotations: true }]) {
+    const result = await engine.sanitizePdf(original, options);
+    const cleaned = await PDFDocument.load(result.bytes, { updateMetadata: false });
+    assert.equal(cleaned.getPage(0).node.lookup(PDFName.of('Annots'), PDFArray).size(), 1);
+    assert.equal(decodedPdfContains(cleaned, CANARY_URL), false);
+  }
+});
+
+test('OCR fallback retains the prefix of long identifiers in searchable exports', async () => {
+  const document = await PDFDocument.create({ updateMetadata: false });
+  document.addPage();
+  const text = `LONG_IDENTIFIER_CANARY_${'A'.repeat(400)} ${'A'.repeat(50).concat(' ').repeat(2800)}END_IDENTIFIER_CANARY_742`;
+  const output = await engine.overlaySearchText(await document.save(), { 0: text });
+  const searchable = await PDFDocument.load(output, { updateMetadata: false });
+  assert.equal(decodedPdfContains(searchable, 'LONG_IDENTIFIER_CANARY_'), true);
+  assert.equal(decodedPdfContains(searchable, 'END_IDENTIFIER_CANARY_742'), true);
+  const rasterOutput = await engine.rasterPagesToPdf([{ imageBytes: createSolidPng(3, 2), width: 300, height: 400, searchText: text }]);
+  const rasterDocument = await PDFDocument.load(rasterOutput);
+  assert.equal(decodedPdfContains(rasterDocument, 'LONG_IDENTIFIER_CANARY_'), true);
+  assert.equal(decodedPdfContains(rasterDocument, 'END_IDENTIFIER_CANARY_742'), true);
+});
+
+test('OCR word placement follows displayed crop bounds at every page rotation', async () => {
+  for (const rotation of [0, 90, 180, 270]) {
+    const document = await PDFDocument.create({ updateMetadata: false });
+    const page = document.addPage([200, 300]);
+    page.setCropBox(20, 30, 150, 230);
+    page.setRotation(degrees(rotation));
+    const rasterWidth = rotation % 180 ? 230 : 150;
+    const rasterHeight = rotation % 180 ? 150 : 230;
+    const output = await engine.overlaySearchText(await document.save(), { 0: {
+      text: 'CANARY', runs: [{ text: 'CANARY', x0: 20, y0: 40, x1: 120, y1: 60 }], rasterWidth, rasterHeight
+    } });
+    const loadingTask = getDocument({ data: output.slice(), standardFontDataUrl: `${path.join(root, 'node_modules/pdfjs-dist/standard_fonts')}${path.sep}`, useWorkerFetch: false });
+    try {
+      const pdf = await loadingTask.promise;
+      const loadedPage = await pdf.getPage(1);
+      const viewport = loadedPage.getViewport({ scale: 1 });
+      const content = await loadedPage.getTextContent();
+      const word = content.items.find((item) => item.str === 'CANARY');
+      assert.ok(word, `OCR word absent at rotation ${rotation}`);
+      const displayed = Util.transform(viewport.transform, word.transform);
+      [20, 0, 0, -20, 20, 60].forEach((expected, index) => {
+        assert.ok(Math.abs(displayed[index] - expected) < .01, `rotation ${rotation}, matrix[${index}]: ${displayed[index]} versus ${expected}`);
+      });
+    } finally { await loadingTask.destroy(); }
+  }
+});
+
+
+test('metadata cleanup physically removes image-resource XMP metadata', async () => {
+  const document = await PDFDocument.create({ updateMetadata: false });
+  const page = document.addPage([300, 400]);
+  const image = await document.embedPng(createSolidPng(3, 2));
+  // Embedding is deferred until save, so finish it before editing the image dictionary.
+  await document.save();
+  const metadata = document.context.register(document.context.flateStream(
+    new TextEncoder().encode('<xmp>IMAGE_METADATA_CANARY_742</xmp>'), { Type: 'Metadata', Subtype: 'XML' }
+  ));
+  const imageStream = document.context.lookup(image.ref);
+  imageStream.dict.set(PDFName.of('Metadata'), metadata);
+  imageStream.dict.set(PDFName.of('PieceInfo'), document.context.obj({ Private: PDFString.of('IMAGE_PIECEINFO_CANARY_742') }));
+  page.drawImage(image, { x: 20, y: 20, width: 30, height: 20 });
+  const original = await document.save();
+  const before = await PDFDocument.load(original, { updateMetadata: false });
+  assert.equal(decodedPdfContains(before, 'IMAGE_METADATA_CANARY_742'), true);
+  const result = await engine.sanitizePdf(original, { metadata: true });
+  const cleaned = await PDFDocument.load(result.bytes, { updateMetadata: false });
+  assert.equal(decodedPdfContains(cleaned, 'IMAGE_METADATA_CANARY_742'), false);
+  assert.equal(decodedPdfContains(cleaned, 'IMAGE_PIECEINFO_CANARY_742'), false);
+  assert.equal(cleaned.getPageCount(), 1);
+});
+
+test('large page transforms preserve order and cancellation leaves the source intact', async () => {
+  const specs = Array.from({ length: 240 }, (_, index) => ({ label: `STRESS PAGE ${index + 1}`, width: 300 + index, height: 600, rotation: index % 4 * 90 }));
+  const original = await createOrderedPdf(specs);
+  const order = specs.map((_spec, index) => specs.length - index - 1);
+  const result = await engine.reorderPdf(original, order);
+  const resultGeometry = await geometry(result);
+  assert.deepEqual(resultGeometry.map((page) => page.width), specs.map((page) => page.width).reverse());
+  const abort = new AbortController();
+  await assert.rejects(engine.reorderPdf(original, order, {}, (event) => { if (event.current === 3) abort.abort(); }, abort.signal), { name: 'AbortError' });
+  assert.deepEqual((await geometry(original)).map((page) => page.width), specs.map((page) => page.width));
+});
+
+
+test('sanitized explicit and named internal links navigate to the original target page', async () => {
+  const document = await PDFDocument.create({ updateMetadata: false });
+  const first = document.addPage([300, 400]);
+  const target = document.addPage([300, 400]);
+  const named = PDFString.of('second-page');
+  const nameLeaf = document.context.register(document.context.obj({ Names: [named, { D: [target.ref, 'FitH', 180] }] }));
+  document.catalog.set(PDFName.of('Names'), document.context.obj({ Dests: { Kids: [nameLeaf] } }));
+  document.catalog.set(PDFName.of('Dests'), document.context.obj({ 'legacy-target': [target.ref, 'XYZ', 25, 160, null] }));
+  const definitions = [
+    { A: { S: 'GoTo', D: [target.ref, 'Fit'] } },
+    { Dest: [target.ref, 'FitH', 170] },
+    { A: { S: 'GoTo', D: named } },
+    { Dest: PDFName.of('legacy-target') }
+  ];
+  first.node.set(PDFName.of('Annots'), document.context.obj(definitions.map((definition, index) => document.context.register(document.context.obj({
+    Type: 'Annot', Subtype: 'Link', Rect: [10, 20 + index * 40, 100, 40 + index * 40], ...definition
+  })))));
+  const original = await document.save();
+  for (const options of [{ externalLinks: true }, { metadata: true }, { annotations: true, externalLinks: true }]) {
+    const result = await engine.sanitizePdf(original, options);
+    const rebuilt = await PDFDocument.load(result.bytes, { updateMetadata: false });
+    const pageObjects = rebuilt.context.enumerateIndirectObjects().filter(([_reference, object]) => object instanceof PDFDict && String(object.get(PDFName.of('Type'))) === '/Page');
+    assert.equal(pageObjects.length, 2, 'destinations must not import detached copies of the target page');
+    const loadingTask = getDocument({ data: result.bytes.slice(), useWorkerFetch: false });
+    try {
+      const pdf = await loadingTask.promise;
+      const page = await pdf.getPage(1);
+      const links = (await page.getAnnotations()).filter((annotation) => annotation.subtype === 'Link');
+      assert.equal(links.length, 4);
+      for (const link of links) {
+        const destination = typeof link.dest === 'string' ? await pdf.getDestination(link.dest) : link.dest;
+        assert.ok(Array.isArray(destination), `unresolved internal destination: ${link.dest}`);
+        const index = Number.isInteger(destination[0]) ? destination[0] : await pdf.getPageIndex(destination[0]);
+        assert.equal(index, 1);
+      }
+      assert.deepEqual(links.map((link) => link.dest[1].name), ['Fit', 'FitH', 'FitH', 'XYZ']);
+    } finally { await loadingTask.destroy(); }
+  }
 });

@@ -1,5 +1,16 @@
 # Changelog
 
+## 7.1.1 - 2026-10-01
+
+- Kept the file-first workflow, shortened Home instructions, removed the duplicate Home header picker, and made the mobile header compact. PDF Export controls appear above the page preview on phones. More closes when users click outside it.
+- Protected active PDF work when a replacement fails, selections overlap, the current file is reopened, or an unfinished load is cleared. Search and thumbnail results stay attached to their source document.
+- Fixed Open another, picker cancellation, unsaved state after cancelled export, cumulative queue limits, invalid drag inputs, and colliding conversion/batch ZIP filenames.
+- Kept current Word edits when reopening the same File or creating its clean copy. Clearing cancels unfinished Word loads and releases document previews and controls.
+- Corrected Word comparison insertion order and repeated paragraphs; refused unsupported new structural containers instead of flattening them.
+- Improved PDF comment and resource-metadata removal, external action-chain detection, retained internal navigation, and OCR text coverage and placement on rotated or cropped pages.
+- Expanded release coverage to 46 unit tests, 4 privacy tests, and 49 Chromium browser tests, including deterministic edit scenarios, large-document transforms, cancellation, malformed inputs, actual exported-file inspection, offline operation, and narrow-screen checks.
+- Preserved v7.1.0 on archive/v7.1.0-before-stress-test.
+
 ## 7.1.0 - 2026-09-26
 
 - Reworked the shell around a file-first workflow: opening one DOCX or PDF now goes directly to its workspace.
