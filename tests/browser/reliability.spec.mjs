@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import JSZip from 'jszip';
+import { createReviewDocx } from '../fixtures/generate-word-fixtures.mjs';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { createOrderedPdf } from '../fixtures/generate-fixtures.mjs';
 
@@ -43,11 +44,11 @@ function textUploads(prefix, count) {
 test('cancelling the fallback Word picker releases its pending state', async ({ page }) => {
   await openShell(page);
   await page.evaluate(() => { document.getElementById('home-word-file-input').click = () => {}; });
-  await page.locator('#home-drop-zone').getByRole('button', { name: 'Choose Word document', exact: true }).click();
+  await page.locator('#linear-upload').click();
   await expect(page.locator('#home-word-file-input')).toHaveAttribute('data-pending-picker', 'true');
   await page.locator('#home-word-file-input').dispatchEvent('cancel');
   await expect(page.locator('#home-word-file-input')).not.toHaveAttribute('data-pending-picker', 'true');
-  await expect(page.locator('#home-selection')).toBeHidden();
+  await expect(page.locator('#linear-document-bar')).toBeHidden();
 });
 
 test('repeated cancelled picker attempts stage one file without unexpectedly opening the editor', async ({ page }) => {
@@ -55,21 +56,18 @@ test('repeated cancelled picker attempts stage one file without unexpectedly ope
   await page.evaluate(() => {
     document.getElementById('home-word-file-input').click = () => {};
     window.__reliabilityOpenCount = 0;
-    window.CommentMasterWord = {
-      openFile: async () => { window.__reliabilityOpenCount += 1; },
-      hasDocument: () => false
-    };
+    const word = window.CommentMasterWord;
+    window.CommentMasterWord = { ...word, openFile: async (file) => { window.__reliabilityOpenCount += 1; return word.openFile(file); } };
   });
-  const choose = page.locator('#home-drop-zone').getByRole('button', { name: 'Choose Word document', exact: true });
+  const choose = page.locator('#linear-upload');
   for (let attempt = 0; attempt < 3; attempt += 1) {
     await choose.click();
     await page.locator('#home-word-file-input').dispatchEvent('cancel');
   }
   await choose.click();
-  await page.locator('#home-word-file-input').setInputFiles({ name: 'Picker.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: Buffer.from('Picker control fixture; the engine is replaced in this test.') });
-  await expect(page.locator('#home-word-actions')).toBeVisible();
-  expect(await page.evaluate(() => window.__reliabilityOpenCount)).toBe(0);
-  await page.locator('[data-task="review"]').click();
+  await page.locator('#home-word-file-input').setInputFiles(await createReviewDocx({ name: 'Picker.docx' }));
+  await expect(page.locator('#linear-document-bar')).toBeVisible();
+  await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
   await expect.poll(() => page.evaluate(() => window.__reliabilityOpenCount)).toBe(1);
 });
 
@@ -198,7 +196,7 @@ test('clearing the workspace invalidates a PDF read that is still pending', asyn
   await page.evaluate(async () => { window.__releaseFirstRead(); await window.__firstOpenPromise; });
   expect(await page.evaluate(() => window.CommentMasterWorkbench.resources().pdfLoaded)).toBe(false);
   await expect(page.locator('#pdf-loaded')).toBeHidden();
-  await expect(page.locator('#home-selection')).toBeHidden();
+  await expect(page.locator('#linear-document-bar')).toBeHidden();
 });
 
 test('reopening the same staged PDF preserves unsaved rotations', async ({ page }) => {
@@ -269,6 +267,9 @@ test('clearing PDF work releases dirty state and removes rendered document and r
 
 test('a malformed PDF dropped into the PDF surface produces a visible error without an unhandled rejection', async ({ page }) => {
   await openShell(page);
+  await page.locator('.linear-other-tools').filter({ hasText: 'PDF tools' }).locator('summary').click();
+  await page.locator('[data-linear-pdf="review"]').click();
+  await expect(page.locator('#pdf-empty')).toBeVisible();
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.evaluate(() => {
@@ -297,7 +298,7 @@ test('the More menu closes when the user clicks outside it', async ({ page }) =>
   await openShell(page);
   await page.locator('#nav-toggle').click();
   await expect(page.locator('#global-navigation')).toBeVisible();
-  await page.locator('#home h2').first().click();
+  await page.locator('.linear-heading h2').click();
   await expect(page.locator('#global-navigation')).toBeHidden();
   await expect(page.locator('#nav-toggle')).toHaveAttribute('aria-expanded', 'false');
 });

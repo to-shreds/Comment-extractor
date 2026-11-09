@@ -1,3 +1,4 @@
+import { initLinearWorkspace } from './linear-workspace.mjs?v=7.3.0';
 import * as pdfjsLib from '../vendor/pdfjs/pdf.mjs';
 import DOMPurify from '../vendor/dompurify/purify.es.mjs';
 import { marked } from '../vendor/marked/marked.esm.js';
@@ -5,7 +6,7 @@ import {
   WORKBENCH_VERSION, assertSafeFiles, contextualSuggestions, detectFormat,
   escapeHtml, extensionOf, formatLabel, humanBytes, parsePageRanges,
   productFilename, safeFilename, yieldToMain
-} from './workbench-core.mjs?v=7.2.2';
+} from './workbench-core.mjs?v=7.3.0';
 import {
   addPdfMarks, containsRawString, createPdfFromImages, createTextPdf,
   extractPdf, fillAndFlattenPdf, inspectPdfStructure, loadPdf, mergePdfInputs,
@@ -53,6 +54,7 @@ const app = {
   currentJob: null,
   urls: new Set(),
   cleanWordFile: null,
+  cleanWordSourceToken: null,
   pickerHandles: new Map()
 };
 
@@ -115,6 +117,8 @@ function init() {
   showStatus('Ready. Choose a file to begin.');
   registerServiceWorker();
   exposeWorkbenchApi();
+  initLinearWorkspace({ stageFiles: stageHomeFiles, switchRoute, chooseTask, switchPdfTab, switchToolTab,
+    chooseFiles, openCompare, clearWorkspace: clearLocalWorkspace, selectedFiles: () => app.homeFiles });
 }
 
 function bindWorkbenchEvents() {
@@ -310,6 +314,7 @@ function setDocumentRouteAvailability(type, available) {
 function switchRoute(route, moveFocus = true) {
   if (!['home', 'word', 'pdf', 'tools'].includes(route)) route = 'home';
   app.route = route;
+  window.dispatchEvent(new CustomEvent('commentmaster:route', { detail: { route } }));
   document.querySelectorAll('[data-route-view]').forEach((view) => {
     if (view.dataset.routeView !== route) view.hidden = true;
     else if (route === 'word') {
@@ -473,6 +478,7 @@ function closeOwningDialog(button) {
 }
 
 function showResult(type, detail) {
+  window.dispatchEvent(new CustomEvent('commentmaster:tool-result', { detail: { type, sourceToken: detail.workflowSourceToken ?? null } }));
   app.result = { type, ...detail };
   app.resultTab = type === 'comparison' ? 'redline' : 'summary';
   app.resultChangeIndex = 0;
@@ -713,6 +719,19 @@ async function chooseHomeWord() {
 async function stageHomeFiles(files, options = {}) {
   const list = Array.from(files || []);
   if (list.length) assertSafeFiles(list);
+  if (options.stayOnHome && list.length === 1 && detectFormat(list[0]) === 'docx') {
+    const word = window.CommentMasterWord;
+    app.homeWordTaskBusy = true;
+    try {
+      await word.openFile(list[0]);
+      if (!word.isCurrentFile(list[0])) return false;
+      app.homeFiles = list;
+      renderHomeSelection();
+      switchRoute('home', false);
+      window.dispatchEvent(new CustomEvent('commentmaster:home-staged', { detail: { files: list } }));
+      return true;
+    } finally { app.homeWordTaskBusy = false; }
+  }
   const current = app.homeFiles.length === 1 ? app.homeFiles[0] : null;
   const word = window.CommentMasterWord;
   const replacesCurrent = current && (!list.length || list.length !== 1 || list[0] !== current);
@@ -721,6 +740,7 @@ async function stageHomeFiles(files, options = {}) {
   }
   app.homeFiles = list;
   renderHomeSelection();
+  window.dispatchEvent(new CustomEvent('commentmaster:home-staged', { detail: { files: list } }));
   if (!list.length) return true;
   if (options.stayOnHome) {
     switchRoute('home', false);
@@ -2683,13 +2703,17 @@ async function chooseCleanWordFile() {
 
 async function useCurrentWordForClean() {
   if (!window.CommentMasterWord || !window.CommentMasterWord.hasDocument()) throw new Error('Open a Word document before choosing the current document.');
-  setCleanWordFile(await window.CommentMasterWord.currentDocumentFile());
+  const token = window.CommentMasterWord.workflowInfo?.()?.token;
+  const file = await window.CommentMasterWord.currentDocumentFile();
+  setCleanWordFile(file);
+  app.cleanWordSourceToken = window.CommentMasterWord.workflowInfo?.()?.token === token ? token : null;
 }
 
 function setCleanWordFile(file) {
   if (!file) return;
   if (detectFormat(file) !== 'docx') throw new Error('Create Clean Word Copy requires a DOCX file.');
   app.cleanWordFile = file;
+  app.cleanWordSourceToken = window.CommentMasterWord?.isCurrentFile?.(file) ? window.CommentMasterWord.workflowInfo?.()?.token : null;
   $('clean-word-source').textContent = `${file.name} · ${humanBytes(file.size)}`;
   renderCleanWordPreview();
 }
@@ -2736,7 +2760,7 @@ async function createCleanWordCopy() {
   if (!Object.values(options).some(Boolean)) throw new Error('Choose at least one cleanup operation.');
   await withJob('Creating clean Word copy', async () => {
     const blob = await cleanWordFile(app.cleanWordFile, options);
-    showResult('clean-word', { blob, filename: productFilename(app.cleanWordFile.name, 'Clean', 'docx'), heading: 'Clean Word copy ready', message: 'The selected review, metadata, hidden-text, relationship, and embedded-content cleanup was applied to a new copy. Open the result in Word and review it before external sharing.' });
+    showResult('clean-word', { blob, workflowSourceToken: app.cleanWordSourceToken, filename: productFilename(app.cleanWordFile.name, 'Clean', 'docx'), heading: 'Clean Word copy ready', message: 'The selected review, metadata, hidden-text, relationship, and embedded-content cleanup was applied to a new copy. Open the result in Word and review it before external sharing.' });
   });
 }
 
@@ -2960,7 +2984,7 @@ async function clearLocalWorkspace() {
   if (hasWork && !window.confirm('Clear selected files, PDF working changes, queues, and completed in-memory results from this browser tab? Saved downloads are not affected.')) return;
   await stageHomeFiles([], { skipUnsavedWarning: true });
   toolState.binder = []; toolState.convert = []; toolState.batch = []; toolState.batchResults = []; toolState.inspectorFiles = [];
-  app.cleanWordFile = null; app.result = null;
+  app.cleanWordFile = null; app.cleanWordSourceToken = null; app.result = null;
   if (typeof window.CommentMasterWord?.clearLocalDocument === 'function') window.CommentMasterWord.clearLocalDocument();
   if (window.CommentMasterWord && typeof window.CommentMasterWord.clearComparisonState === 'function') window.CommentMasterWord.clearComparisonState();
   renderToolQueue('binder'); renderToolQueue('convert'); renderToolQueue('batch');

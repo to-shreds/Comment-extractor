@@ -1,5 +1,16 @@
 # Changelog
 
+## 7.3.0 - 2026-11-09 (unpublished)
+
+- Replaced the task chooser with one linear workspace containing collapsible editing sections and a left-anchored tools/progress sidebar.
+- Reused existing editing engines and controls for manual comment/redline/name/date edits, find and replace, metadata, new tracked changes, inspection, comparison, and combination. Other tools remain in the sidebar.
+- Added per-document activity and download status with undo-aware updates. Merely opening an edit section does not mark it applied.
+- Added a configurable Word comments/redlines summary with both types and all columns checked by default, and an optional unchecked source-document appendix.
+- Preserved source XML and every unmodified DOCX package part when inserting summary pages. Unsupported signed or special-initial-section files fail clearly instead of silently changing their structure.
+- Kept one working copy across sections, exports, and detailed-editor navigation. The two primary final download actions remain at the bottom.
+- Fixed zero-second date-field normalization falsely making a just-loaded document look edited.
+- Retained browser-local privacy, standard Word file-picker behavior, and release-versioned application assets.
+
 ## 7.2.2 - 2026-11-09
 
 - Turned the Word landing page into a persistent **working session** instead of separate one-action downloads.

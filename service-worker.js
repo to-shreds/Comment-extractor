@@ -1,5 +1,5 @@
-const VERSION = "7.2.2";
-const BUILD_ID = "8395cb059d742010c2c7515a";
+const VERSION = "7.3.0";
+const BUILD_ID = "df44ef3b1ebc6acf5d1c35d3";
 const CACHE_PREFIX = 'comment-master-';
 const CORE_CACHE = `${CACHE_PREFIX}core-${VERSION}-${BUILD_ID}`;
 const OPTIONAL_CACHE = `${CACHE_PREFIX}optional-${VERSION}-${BUILD_ID}`;
@@ -9,6 +9,9 @@ const CORE_ASSETS = Object.freeze([
   "./asset-manifest.json",
   "./assets/workbench.css",
   "./assets/workbench.js",
+  "./assets/linear-workspace.css",
+  "./assets/linear-workspace.mjs",
+  "./assets/review-summary.mjs",
   "./assets/workbench-core.mjs",
   "./assets/pdf-engine.mjs",
   "./vendor/pdfjs/pdf.mjs",

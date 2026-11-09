@@ -49,7 +49,7 @@ async function openShell(page) {
   });
   await page.goto('/');
   await page.waitForFunction(() => (
-    window.CommentMasterWorkbench?.version === '7.2.2'
+    window.CommentMasterWorkbench?.version === '7.3.0'
     && typeof window.CommentMasterWord?.openFile === 'function'
   ));
   await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
@@ -194,13 +194,13 @@ test.describe('home and navigation', () => {
   test('desktop home presents one obvious file-first workflow', async ({ page }) => {
     await openShell(page);
 
-    await expect(page.getByRole('heading', { name: 'What do you want to do with your Word document?' })).toBeVisible();
-    await expect(page.locator('#home-drop-zone')).toContainText('Choose your Word document');
+    await expect(page.getByRole('heading', { name: 'Your document, step by step.' })).toBeVisible();
+    await expect(page.locator('#linear-file-drop')).toContainText('Choose a Word document');
     await expect(page.getByRole('button', { name: 'Choose Word document' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Files stay on this device' })).toBeVisible();
-    await expect(page.locator('#home-word-actions')).toBeHidden();
-    await expect(page.locator('.home-extra-tools summary')).toBeVisible();
-    await expect(page.locator('.home-extra-tools .button-row')).toBeHidden();
+    await expect(page.locator('.linear-local')).toContainText('Processed on this device');
+    await expect(page.locator('#linear-download-summary')).toBeDisabled();
+    await expect(page.locator('.linear-other-tools summary').first()).toBeVisible();
+    await expect(page.locator('.linear-other-tools > div').first()).toBeHidden();
     await expect(page.locator('.home-card')).toHaveCount(0);
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -234,7 +234,7 @@ test.describe('home and navigation', () => {
     await openShell(page);
     await page.locator('#workbench-file-input').setInputFiles([fixtures.originalDocx, fixtures.orderedPdf]);
 
-    await expect(page.locator('#home-selection')).toBeVisible();
+    await expect(page.locator('#linear-multiple-files')).toBeVisible();
     await expect(page.locator('#selected-files .selected-file')).toHaveCount(2);
     await expect(page.locator('#selected-files')).toContainText(fixtures.originalDocx.name);
     await expect(page.locator('#selected-files')).toContainText(fixtures.orderedPdf.name);
@@ -243,175 +243,9 @@ test.describe('home and navigation', () => {
     await expect(page.locator('#suggestion-actions')).toContainText('Convert Files');
 
     await page.getByRole('button', { name: `Remove ${fixtures.orderedPdf.name}` }).click();
-    await expect(page.locator('#home-selection-status')).toContainText('Word document ready');
-    await expect(page.locator('#home-word-actions')).toBeVisible();
-    await expect(page.locator('#suggestion-actions')).toContainText('Open for Review');
+    await expect(page.locator('#linear-document-bar')).toBeVisible();
+    await expect(page.locator('#linear-filename')).toContainText(fixtures.originalDocx.name);
   });
-});
-
-test.describe('guided Word actions', () => {
-  test('the actual Choose Word document button opens a file chooser with versioned app assets', async ({ page }) => {
-    const requests = [];
-    page.on('request', (request) => {
-      const url = new URL(request.url());
-      if (/\/assets\/workbench(?:-core)?\.(?:js|css|mjs)$/.test(url.pathname)) {
-        requests.push({ path: url.pathname, version: url.searchParams.get('v') });
-      }
-    });
-    await page.addInitScript(() => {
-      Object.defineProperty(window, 'showOpenFilePicker', {
-        configurable: true,
-        value: () => { throw new Error('The main upload must use the normal file input, not the File System Access picker.'); }
-      });
-    });
-    await openShell(page);
-    const pendingChooser = page.waitForEvent('filechooser');
-    await page.getByRole('button', { name: 'Choose Word document', exact: true }).click();
-    const chooser = await pendingChooser;
-    expect(chooser.isMultiple()).toBe(false);
-    await chooser.setFiles(fixtures.originalDocx);
-    await expect(page.locator('#home-word-actions')).toBeVisible();
-    await expect(page.locator('#selected-files')).toContainText(fixtures.originalDocx.name);
-    await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
-    for (const asset of ['workbench.css', 'workbench.js', 'workbench-core.mjs']) {
-      expect(requests.some((request) => request.path.endsWith(`/${asset}`) && request.version === '7.2.2')).toBe(true);
-    }
-  });
-
-  test('choosing a Word file stays on a clear task menu and exports comments directly', async ({ page }) => {
-    await openShell(page);
-    await page.locator('#home-word-file-input').setInputFiles(fixtures.originalDocx);
-    await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
-    await expect(page.locator('#selected-files')).toContainText(fixtures.originalDocx.name);
-    await expect(page.locator('#home-word-actions')).toBeVisible();
-    await expect(page.locator('[data-task="rename"]')).toContainText('Change reviewer names');
-    await expect(page.locator('#workspace')).toBeHidden();
-    const report = await downloadFrom(page, '[data-task="export"]');
-    expect(report.filename).toMatch(/\(Comments [0-9.]+\)\.docx$/);
-    const zip = await JSZip.loadAsync(report.bytes, { checkCRC32: true });
-    expect((await zip.file('word/document.xml').async('text'))).toContain('Generated browser fixture comment');
-    await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
-    await expect(page.locator('#home-task-feedback')).toContainText('Comments report');
-  });
-
-
-  test('name edits stay in memory through comment export, more edits, and a final Word download', async ({ page }) => {
-    await openShell(page);
-    await page.locator('#home-word-file-input').setInputFiles(fixtures.originalDocx);
-    await expect(page.locator('#home-working-copy')).toBeHidden();
-    const downloads = [];
-    page.on('download', (download) => downloads.push(download.suggestedFilename()));
-
-    await page.locator('[data-task="rename"]').click();
-    await expect(page.locator('#home-rename-panel')).toBeVisible();
-    await page.locator('#home-rename-from').selectOption({ label: 'Browser QA' });
-    await page.locator('#home-rename-to').fill('First Reviewer');
-    await page.locator('#home-rename-apply').click();
-
-    await expect(page.locator('#home-word-actions')).toBeVisible();
-    await expect(page.locator('#home-working-copy')).toBeVisible();
-    await expect(page.locator('#home-working-copy-status')).toContainText('not yet in a downloaded Word document');
-    await expect(page.locator('#home-task-feedback')).toContainText('You can make more changes');
-    expect(downloads).toEqual([]);
-    expect(await page.evaluate(() => window.CommentMasterWord.snapshot().dirty)).toBe(true);
-
-    const report = await downloadFrom(page, '[data-task="export"]');
-    expect(report.filename).toMatch(/\(Comments [0-9.]+\)\.docx$/);
-    const reportZip = await JSZip.loadAsync(report.bytes, { checkCRC32: true });
-    const reportXml = await reportZip.file('word/document.xml').async('text');
-    expect(reportXml).toContain('First Reviewer');
-    expect(reportXml).toContain('Generated browser fixture comment');
-    expect(reportXml).not.toContain('<w:t>Browser QA</w:t>');
-    expect(await page.evaluate(() => window.CommentMasterWord.snapshot().dirty)).toBe(true);
-    await expect(page.locator('#home-working-copy')).toBeVisible();
-
-    await page.locator('[data-task="rename"]').click();
-    await page.locator('#home-rename-from').selectOption({ label: 'First Reviewer' });
-    await page.locator('#home-rename-to').fill('Final Reviewer');
-    await page.locator('#home-rename-apply').click();
-    expect(downloads).toHaveLength(1);
-    await expect(page.locator('#home-word-actions')).toBeVisible();
-
-    const saved = await downloadFrom(page, '#home-save-word');
-    expect(saved.filename).toMatch(/\(Edit [0-9.]+\)\.docx$/);
-    const zip = await JSZip.loadAsync(saved.bytes, { checkCRC32: true });
-    const comments = await zip.file('word/comments.xml').async('text');
-    const document = await zip.file('word/document.xml').async('text');
-    expect(comments).toContain('w:author="Final Reviewer"');
-    expect(document).toContain('w:author="Final Reviewer"');
-    expect(comments).not.toContain('w:author="Browser QA"');
-    expect(document).not.toContain('w:author="Browser QA"');
-    expect(comments).not.toContain('w:author="First Reviewer"');
-    expect(document).not.toContain('w:author="First Reviewer"');
-    expect(await page.evaluate(() => window.CommentMasterWord.snapshot().dirty)).toBe(false);
-    await expect(page.locator('#home-working-copy')).toBeVisible();
-    await expect(page.locator('#home-working-copy-status')).toContainText('last download');
-
-    const secondReport = await downloadFrom(page, '[data-task="export"]');
-    const secondZip = await JSZip.loadAsync(secondReport.bytes, { checkCRC32: true });
-    const secondXml = await secondZip.file('word/document.xml').async('text');
-    expect(secondXml).toContain('Final Reviewer');
-    expect(secondXml).not.toContain('First Reviewer');
-    await expect(page.locator('#home-word-actions')).toBeVisible();
-  });
-
-  test('reviewer rename requires a new name and Back does not discard changes', async ({ page }) => {
-    await openShell(page);
-    await page.locator('#home-word-file-input').setInputFiles(fixtures.originalDocx);
-    await page.locator('[data-task="rename"]').click();
-    await page.locator('#home-rename-apply').click();
-    await expect(page.locator('#home-task-feedback')).toContainText('enter the new name');
-    await page.locator('#home-rename-to').fill('Working Reviewer');
-    await page.locator('#home-rename-apply').click();
-    await page.locator('[data-task="rename"]').click();
-    await page.locator('[data-wb-action="home-rename-back"]').click();
-    await expect(page.locator('#home-word-actions')).toBeVisible();
-    await expect(page.locator('#home-rename-panel')).toBeHidden();
-    await expect(page.locator('#home-working-copy')).toBeVisible();
-    expect(await page.evaluate(() => window.CommentMasterWord.snapshot().items.every((item) => item.author === 'Working Reviewer'))).toBe(true);
-  });
-
-  test('returning to Home after entering the Word editor preserves the same working copy', async ({ page }) => {
-    await openShell(page);
-    await page.locator('#home-word-file-input').setInputFiles(fixtures.originalDocx);
-    await page.locator('[data-task="rename"]').click();
-    await page.locator('#home-rename-to').fill('Still Here Reviewer');
-    await page.locator('#home-rename-apply').click();
-    await page.locator('[data-task="review"]').click();
-    await expect(page.locator('body')).toHaveAttribute('data-route', 'word');
-    await page.locator('#nav-toggle').click();
-    await page.locator('#global-navigation').getByRole('button', { name: 'Home', exact: true }).click();
-    await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
-    await expect(page.locator('#home-working-copy')).toBeVisible();
-    const report = await downloadFrom(page, '[data-task="export"]');
-    const zip = await JSZip.loadAsync(report.bytes, { checkCRC32: true });
-    expect(await zip.file('word/document.xml').async('text')).toContain('Still Here Reviewer');
-    await page.locator('[data-task="compare"]').click();
-    await expect(page.locator('#compare-dialog')).toHaveAttribute('open', '');
-    await expect(page.locator('#compare-original-source')).toHaveValue('current');
-    await expect(page.locator('#compare-original-note')).toContainText('currently loaded');
-  });
-
-  test('choosing another file or clearing the selection warns before abandoning an unsaved working copy', async ({ page }) => {
-    await openShell(page);
-    await page.locator('#home-word-file-input').setInputFiles(fixtures.originalDocx);
-    await page.locator('[data-task="rename"]').click();
-    await page.locator('#home-rename-to').fill('Keep My Work');
-    await page.locator('#home-rename-apply').click();
-    const warnings = [];
-    page.on('dialog', async (dialog) => {
-      warnings.push(dialog.message());
-      await dialog.dismiss();
-    });
-    await page.locator('#home-word-file-input').setInputFiles(fixtures.revisedDocx);
-    await expect(page.locator('#selected-files')).toContainText(fixtures.originalDocx.name);
-    await page.locator('[data-wb-action="clear-selection"]').click();
-    await expect(page.locator('#selected-files')).toContainText(fixtures.originalDocx.name);
-    expect(warnings).toHaveLength(2);
-    expect(warnings[0]).toContain('not been downloaded');
-    expect(await page.evaluate(() => window.CommentMasterWord.snapshot().items[0].author)).toBe('Keep My Work');
-  });
-
 });
 
 test.describe('mobile home', () => {
@@ -429,8 +263,8 @@ test.describe('mobile home', () => {
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     await expect(navigation).toBeVisible();
-    await expect(page.locator('#home-drop-zone')).toBeVisible();
-    await expect(page.locator('.home-extra-tools')).toBeVisible();
+    await expect(page.locator('#linear-file-drop')).toBeVisible();
+    await expect(page.locator('#linear-sidebar-toggle')).toBeVisible();
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
@@ -807,7 +641,7 @@ test.describe('privacy and offline behavior', () => {
     if (!await page.evaluate(() => Boolean(navigator.serviceWorker.controller))) {
       await page.reload();
       await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
-      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.2.2');
+      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.3.0');
     }
 
     const cacheReport = await page.evaluate(async () => {
@@ -838,9 +672,9 @@ test.describe('privacy and offline behavior', () => {
     await context.setOffline(true);
     try {
       await page.reload({ waitUntil: 'domcontentloaded' });
-      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.2.2');
+      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.3.0');
       await expect(page.locator('#home')).toBeVisible();
-      await expect(page.getByRole('heading', { name: 'What do you want to do with your Word document?' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Your document, step by step.' })).toBeVisible();
     } finally {
       await context.setOffline(false);
     }
