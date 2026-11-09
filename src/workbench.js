@@ -5,7 +5,7 @@ import {
   WORKBENCH_VERSION, assertSafeFiles, contextualSuggestions, detectFormat,
   escapeHtml, extensionOf, formatLabel, humanBytes, parsePageRanges,
   productFilename, safeFilename, yieldToMain
-} from './workbench-core.mjs';
+} from './workbench-core.mjs?v=7.2.1';
 import {
   addPdfMarks, containsRawString, createPdfFromImages, createTextPdf,
   extractPdf, fillAndFlattenPdf, inspectPdfStructure, loadPdf, mergePdfInputs,
@@ -658,7 +658,7 @@ async function chooseFiles(options = {}) {
   const input = $(options.inputId || 'workbench-file-input');
   if (input?.dataset.pendingPicker) return [];
   const accept = options.accept || ['.docx', '.pdf', '.xlsx', '.csv', '.odt', '.rtf', '.txt', '.md', '.html', '.png', '.jpg', '.jpeg', '.webp'];
-  if (window.isSecureContext && typeof window.showOpenFilePicker === 'function') {
+  if (options.useNative !== false && window.isSecureContext && typeof window.showOpenFilePicker === 'function') {
     try {
       const handles = await window.showOpenFilePicker({
         multiple: options.multiple !== false,
@@ -698,7 +698,7 @@ async function chooseHomeFiles() {
 
 async function chooseHomeWord() {
   const files = await chooseFiles({
-    inputId: 'home-word-file-input', multiple: false, accept: ['.docx'], description: 'Word document'
+    inputId: 'home-word-file-input', multiple: false, accept: ['.docx'], description: 'Word document', useNative: false
   });
   if (!files.length) return;
   if (detectFormat(files[0]) !== 'docx' || !/\.docx$/i.test(files[0].name)) {
