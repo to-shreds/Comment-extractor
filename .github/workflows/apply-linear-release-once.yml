@@ -7,15 +7,17 @@ permissions:
   contents: write
 jobs:
   apply-prepared-release:
-    if: github.event.head_commit.message == 'Stage verified v7.3.0 patch for automated apply and QA' || github.event.head_commit.message == 'Install one-time prepared release applicator'
+    if: github.event.head_commit.message == 'Stage verified v7.3.0 patch for automated apply and QA' || github.event.head_commit.message == 'Repair one-time prepared release applicator'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Check out exact staged patch revision
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Confirm expected baseline and validate patch
         run: |
-          test "$(git log -2 --format=%H | tail -1)" = "e33d85bc8c8f778347c760a84ffecd4990d6b31e" || {
+          test "$(git rev-parse HEAD~2)" = "e33d85bc8c8f778347c760a84ffecd4990d6b31e" || {
             echo "Unexpected baseline. Refusing to overwrite current work."
             exit 1
           }
