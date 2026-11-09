@@ -386,6 +386,10 @@ test.describe('guided Word actions', () => {
     const report = await downloadFrom(page, '[data-task="export"]');
     const zip = await JSZip.loadAsync(report.bytes, { checkCRC32: true });
     expect(await zip.file('word/document.xml').async('text')).toContain('Still Here Reviewer');
+    await page.locator('[data-task="compare"]').click();
+    await expect(page.locator('#compare-dialog')).toHaveAttribute('open', '');
+    await expect(page.locator('#compare-original-source')).toHaveValue('current');
+    await expect(page.locator('#compare-original-note')).toContainText('Currently loaded');
   });
 
   test('choosing another file or clearing the selection warns before abandoning an unsaved working copy', async ({ page }) => {
