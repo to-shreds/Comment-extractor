@@ -6,6 +6,10 @@ on:
       - ux/word-first-home-2026-11-09
   workflow_dispatch:
 
+concurrency:
+  group: guided-word-home-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
