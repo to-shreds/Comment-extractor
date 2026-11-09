@@ -7,7 +7,7 @@ let fixture;
 test.beforeAll(async () => { fixture = await createReviewDocx(); });
 async function shell(page) {
   await page.goto('/');
-  await page.waitForFunction(() => window.CommentMasterLinear?.version === '7.3.0');
+  await page.waitForFunction(() => window.CommentMasterLinear?.version === '7.3.1');
 }
 async function jump(page, key) {
   const toggle = page.locator('#linear-sidebar-toggle');
