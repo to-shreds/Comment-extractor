@@ -194,12 +194,13 @@ test.describe('home and navigation', () => {
   test('desktop home presents one obvious file-first workflow', async ({ page }) => {
     await openShell(page);
 
-    await expect(page.getByRole('heading', { name: 'Open a document. We’ll take it from there.' })).toBeVisible();
-    await expect(page.locator('#home-drop-zone')).toContainText('Drop files here');
-    await expect(page.getByRole('button', { name: 'Choose files' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'What do you want to do with your Word document?' })).toBeVisible();
+    await expect(page.locator('#home-drop-zone')).toContainText('Choose your Word document');
+    await expect(page.getByRole('button', { name: 'Choose Word document' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Files stay on this device' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Compare / Combine' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'More Tools' })).toBeVisible();
+    await expect(page.locator('#home-word-actions')).toBeHidden();
+    await expect(page.locator('.home-extra-tools summary')).toBeVisible();
+    await expect(page.locator('.home-extra-tools .button-row')).toBeHidden();
     await expect(page.locator('.home-card')).toHaveCount(0);
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -242,8 +243,59 @@ test.describe('home and navigation', () => {
     await expect(page.locator('#suggestion-actions')).toContainText('Convert Files');
 
     await page.getByRole('button', { name: `Remove ${fixtures.orderedPdf.name}` }).click();
-    await expect(page.locator('#home-selection-status')).toContainText('1 file selected');
+    await expect(page.locator('#home-selection-status')).toContainText('Word document ready');
+    await expect(page.locator('#home-word-actions')).toBeVisible();
     await expect(page.locator('#suggestion-actions')).toContainText('Open for Review');
+  });
+});
+
+test.describe('guided Word actions', () => {
+  test('choosing a Word file stays on a clear task menu and exports comments directly', async ({ page }) => {
+    await openShell(page);
+    await page.locator('#home-word-file-input').setInputFiles(fixtures.originalDocx);
+    await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
+    await expect(page.locator('#selected-files')).toContainText(fixtures.originalDocx.name);
+    await expect(page.locator('#home-word-actions')).toBeVisible();
+    await expect(page.locator('[data-task="rename"]')).toContainText('Change reviewer names');
+    await expect(page.locator('#workspace')).toBeHidden();
+    const report = await downloadFrom(page, '[data-task="export"]');
+    expect(report.filename).toMatch(/\\(Comments [0-9.]+\\)\\.docx$/);
+    const zip = await JSZip.loadAsync(report.bytes, { checkCRC32: true });
+    expect((await zip.file('word/document.xml').async('text'))).toContain('Generated browser fixture comment');
+    await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
+    await expect(page.locator('#home-task-feedback')).toContainText('comments report');
+  });
+
+  test('simple reviewer rename edits both comment and redline authors in a new DOCX', async ({ page }) => {
+    await openShell(page);
+    await page.locator('#home-word-file-input').setInputFiles(fixtures.originalDocx);
+    await page.locator('[data-task="rename"]').click();
+    await expect(page.locator('#home-rename-panel')).toBeVisible();
+    await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
+    await page.locator('#home-rename-from').selectOption({ label: 'Browser QA' });
+    await page.locator('#home-rename-to').fill('New Reviewer');
+    const download = await downloadFrom(page, '#home-rename-download');
+    expect(download.filename).toMatch(/\\(Edit [0-9.]+\\)\\.docx$/);
+    const zip = await JSZip.loadAsync(download.bytes, { checkCRC32: true });
+    const comments = await zip.file('word/comments.xml').async('text');
+    const document = await zip.file('word/document.xml').async('text');
+    expect(comments).toContain('w:author="New Reviewer"');
+    expect(document).toContain('w:author="New Reviewer"');
+    expect(comments).not.toContain('w:author="Browser QA"');
+    expect(document).not.toContain('w:author="Browser QA"');
+    await expect(page.locator('#home-task-feedback')).toContainText('Downloaded an updated Word file');
+    await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
+  });
+
+  test('reviewer rename requires a replacement name and can return to choices', async ({ page }) => {
+    await openShell(page);
+    await page.locator('#home-word-file-input').setInputFiles(fixtures.originalDocx);
+    await page.locator('[data-task="rename"]').click();
+    await page.locator('#home-rename-download').click();
+    await expect(page.locator('#home-task-feedback')).toContainText('enter the new name');
+    await page.locator('[data-wb-action="home-rename-back"]').click();
+    await expect(page.locator('#home-word-actions')).toBeVisible();
+    await expect(page.locator('#home-rename-panel')).toBeHidden();
   });
 });
 
@@ -263,7 +315,7 @@ test.describe('mobile home', () => {
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     await expect(navigation).toBeVisible();
     await expect(page.locator('#home-drop-zone')).toBeVisible();
-    await expect(page.locator('.home-shortcuts')).toBeVisible();
+    await expect(page.locator('.home-extra-tools')).toBeVisible();
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
@@ -673,7 +725,7 @@ test.describe('privacy and offline behavior', () => {
       await page.reload({ waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.1.1');
       await expect(page.locator('#home')).toBeVisible();
-      await expect(page.getByRole('heading', { name: 'Open a document. We’ll take it from there.' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'What do you want to do with your Word document?' })).toBeVisible();
     } finally {
       await context.setOffline(false);
     }
