@@ -259,7 +259,7 @@ test.describe('guided Word actions', () => {
     await expect(page.locator('[data-task="rename"]')).toContainText('Change reviewer names');
     await expect(page.locator('#workspace')).toBeHidden();
     const report = await downloadFrom(page, '[data-task="export"]');
-    expect(report.filename).toMatch(/\\(Comments [0-9.]+\\)\\.docx$/);
+    expect(report.filename).toMatch(/\(Comments [0-9.]+\)\.docx$/);
     const zip = await JSZip.loadAsync(report.bytes, { checkCRC32: true });
     expect((await zip.file('word/document.xml').async('text'))).toContain('Generated browser fixture comment');
     await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
@@ -275,7 +275,7 @@ test.describe('guided Word actions', () => {
     await page.locator('#home-rename-from').selectOption({ label: 'Browser QA' });
     await page.locator('#home-rename-to').fill('New Reviewer');
     const download = await downloadFrom(page, '#home-rename-download');
-    expect(download.filename).toMatch(/\\(Edit [0-9.]+\\)\\.docx$/);
+    expect(download.filename).toMatch(/\(Edit [0-9.]+\)\.docx$/);
     const zip = await JSZip.loadAsync(download.bytes, { checkCRC32: true });
     const comments = await zip.file('word/comments.xml').async('text');
     const document = await zip.file('word/document.xml').async('text');
