@@ -1,5 +1,15 @@
 # Changelog
 
+## 7.2.2 - 2026-11-09
+
+- Turned the Word landing page into a persistent **working session** instead of separate one-action downloads.
+- **Apply name change** now changes the in-memory Word document and returns to the same action choices, without exporting the file automatically.
+- Added an optional **Download edited Word document** action that appears when the working copy contains changes; it remains accessible as users export comments, rename reviewers repeatedly, and return from the detailed editor.
+- The comments report uses the current modified reviewer names, even when the edited Word document has not been downloaded. A download does not close or reset the working copy.
+- Compare uses the active edited Word document as its source when loaded; Clean Copy and detailed review continue to use existing in-memory edits.
+- Prevented accidental loss of unsaved reviewer edits when choosing another file or clearing the selection.
+- Expanded browser regression coverage for multiple consecutive name changes, comment reports before and after saving, preserved edits when leaving the editor, and unsaved-work warnings.
+
 ## 7.2.1 - 2026-11-09
 
 - Fixed the new **Choose Word document** button appearing unresponsive when an older installed service worker delivered stale JavaScript to the new landing page.

@@ -1,6 +1,6 @@
 # Comment Master
 
-Comment Master v7.2.1 is a private, browser-local document workbench with a beginner-friendly Word home page, PDF work, document comparison, conversion, binders, cleanup, inspection, and batch processing.
+Comment Master v7.2.2 is a private, browser-local document workbench with a beginner-friendly Word home page, PDF work, document comparison, conversion, binders, cleanup, inspection, and batch processing.
 
 The application is a static site. It does not require an installer, a local server, a browser extension, a cloud document-processing service, or a third-party account. Documents are processed in the browser and are not uploaded by Comment Master.
 
@@ -13,7 +13,7 @@ The v7.2 Home page is designed for someone who is not familiar with Word editing
 1. Choose or drop one Word `.docx` document.
 2. Choose **Export comments**, **Change reviewer names**, **Review comments and tracked changes**, **Make a clean copy**, or **Compare or combine documents**.
 
-**Export comments** downloads a new Word report directly; no editing workspace or export settings need to be opened. **Change reviewer names** asks for the existing name and replacement name, then downloads an edited `.docx` with the selected attribution changed in comments and tracked changes. The original source file is not overwritten. The detailed Word editor and advanced functionality remain available for users who need them.
+**Export comments** downloads a Word report of the comments currently in the working copy, including earlier edits. **Change reviewer names** asks for the old and new names, then applies that change to comments and tracked changes *without forcing a download*. Users can change more names, export comments, open the detailed editor, prepare a clean copy, or compare using the current document before choosing **Download edited Word document**. The original source file is never overwritten. Edits remain in memory in the current browser tab until downloaded and are not stored on a server.
 
 PDFs, multi-file queues, conversion, batch processing, and specialist tools remain under **Working with PDFs, multiple files, or something else?**, as well as the More navigation. Existing processing capabilities are preserved.
 

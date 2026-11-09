@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "version": "7.2.1",
-  "buildId": "7f6136ffa20fadffbbac4dfb",
+  "version": "7.2.2",
+  "buildId": "8395cb059d742010c2c7515a",
   "coreAssets": [
     "./index.html",
     "./manifest.webmanifest",
@@ -237,19 +237,19 @@
     },
     "./assets/workbench-core.mjs": {
       "bytes": 7635,
-      "sha256": "58f01f2e5ae7012d2bd41d08c223277dd5984d460f3a662770c095340dbd4f05"
+      "sha256": "3ee1d75c29fda3ec6ce747d9962d38f13731f82035c0d7a0e889d1fcedef0a76"
     },
     "./assets/workbench.css": {
-      "bytes": 28827,
-      "sha256": "1792c48ca247314b4a05b2c5ddb6386db560fd6909302cff05e10cf9ad4d47db"
+      "bytes": 29601,
+      "sha256": "a4cd6aa75ced185e81c3d332c4afe3f2872e1b5fdc996d3aa593cc6f048b568b"
     },
     "./assets/workbench.js": {
-      "bytes": 155422,
-      "sha256": "1a029830be0a06c0af8c869239d9bcade16c2d7b321c92c1f6b27b90d7cb4814"
+      "bytes": 157764,
+      "sha256": "96535edfe0477913917063faf9aeae326a1172df52f2bad6a71253049efeb440"
     },
     "./index.html": {
-      "bytes": 427728,
-      "sha256": "0550366bb2f4b81002eef28fe9cc4d5c4afff31f8721045ca707ba4b946ce10d"
+      "bytes": 428671,
+      "sha256": "f9e270d9f1eae4c338ab9401d9c6b66dcb97bfcbcbb28723b4ae7e6525c9d402"
     },
     "./manifest.webmanifest": {
       "bytes": 355,
@@ -257,7 +257,7 @@
     },
     "./service-worker.js": {
       "bytes": 13377,
-      "sha256": "038c984e961346e494aaa563b3f590fadedda0539647554801b9ca334fa3732a"
+      "sha256": "4eeefa8989bb60734cdec838f79c7d12e988603a79b6ddcd24daaf8cf688028f"
     },
     "./vendor/dompurify/LICENSE": {
       "bytes": 11358,

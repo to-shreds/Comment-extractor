@@ -1,14 +1,10 @@
-name: Comment Master Release QA
+name: Comment Master v7.2.2 QA
 
 on:
   push:
     branches:
-      - fix/7.2.1-stale-cache-upload
+      - fix/7.2.2-word-session
   workflow_dispatch:
-
-concurrency:
-  group: comment-master-release-${{ github.ref }}
-  cancel-in-progress: true
 
 permissions:
   contents: write

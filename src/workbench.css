@@ -388,3 +388,20 @@ body[data-route="home"] .header-actions > [data-wb-action="open-files"] { displa
   .home-rename-buttons { flex-direction: column; }
   .home-rename-buttons .btn { width: 100%; }
 }
+
+
+/* The current Word working copy stays available across multiple home actions. */
+.home-working-copy {
+  display: flex; align-items: center; justify-content: space-between; gap: 18px;
+  margin: 0 0 18px; padding: 16px 18px;
+  border: 1px solid #a9bfdd; border-radius: 11px; background: #fff;
+}
+.home-working-copy[hidden] { display: none !important; }
+.home-working-copy > div { min-width: 0; }
+.home-working-copy strong { display: block; color: #1c3568; font-size: 15px; }
+.home-working-copy p { margin: 5px 0 0; color: #536078; font-size: 12px; line-height: 1.5; }
+.home-working-copy .btn { min-height: 45px; flex: 0 0 auto; }
+@media (max-width: 720px) {
+  .home-working-copy { align-items: stretch; flex-direction: column; }
+  .home-working-copy .btn { width: 100%; }
+}

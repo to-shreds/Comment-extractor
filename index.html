@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#243f77">
   <meta name="color-scheme" content="light">
   <link rel="manifest" href="manifest.webmanifest">
-  <title>Comment Master v7.2.1</title>
+  <title>Comment Master v7.2.2</title>
   <style>
 :root {
   color-scheme: light;
@@ -344,7 +344,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
 }
 
   </style>
-  <link rel="stylesheet" href="assets/workbench.css?v=7.2.1">
+  <link rel="stylesheet" href="assets/workbench.css?v=7.2.2">
   <script>
 
 
@@ -656,7 +656,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
 (function () {
   'use strict';
 
-  const VERSION = '7.2.1';
+  const VERSION = '7.2.2';
   const WML_TRANSITIONAL = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
   const WML_STRICT = 'http://purl.oclc.org/ooxml/wordprocessingml/main';
   const WML_NAMESPACES = new Set([WML_TRANSITIONAL, WML_STRICT]);
@@ -4385,6 +4385,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
 
   async function exportCommentsWord() {
     requireFile();
+    refreshAfterVisibleCommit(commitVisibleEdits());
     await withDocumentBusy('Building comments report…', async () => {
       if (!window.WFSWord) throw new Error('The embedded Word export writer is unavailable.');
       const report = buildCommentReport();
@@ -4641,6 +4642,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     clearLocalDocument: () => closeDocument(true),
     hasDocument: () => Boolean(state.doc),
     isCurrentFile: (file) => Boolean(state.doc && state.doc.sourceFile === file),
+    hasUnsavedChanges: () => hasUnsavedChanges(),
     snapshot: () => testSnapshot(),
     currentDocumentFile: async () => {
       requireFile();
@@ -4651,6 +4653,14 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     openCompare: (tab = 'documents') => {
       openCompareDialog();
       switchCompareTab(tab);
+    },
+    openCompareUsingCurrent: () => {
+      requireFile();
+      comparisonState.preparedOriginal = null;
+      ui.compareOriginalSource.value = 'current';
+      renderComparisonSources();
+      openCompareDialog();
+      switchCompareTab('documents');
     },
     openCompareWithFiles: (original, revised) => {
       comparisonState.preparedOriginal = original || null;
@@ -4675,6 +4685,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     exportComments: () => exportCommentsWord(),
     renameReviewer: (fromKey, replacement) => {
       requireFile();
+      refreshAfterVisibleCommit(commitVisibleEdits());
       const name = String(replacement || '').trim();
       if (!name) throw new Error('Enter a new reviewer name.');
       const key = String(fromKey || '');
@@ -4700,7 +4711,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
 })();
 
   </script>
-  <script type="module" src="assets/workbench.js?v=7.2.1"></script>
+  <script type="module" src="assets/workbench.js?v=7.2.2"></script>
 </head>
 <body>
 <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -4709,7 +4720,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     <div class="brand-mark" aria-hidden="true">CM</div>
     <div>
       <h1>Comment Master</h1>
-      <p>Private document workbench <span class="version">v7.2.1</span></p>
+      <p>Private document workbench <span class="version">v7.2.2</span></p>
     </div>
   </div>
   <div class="header-actions">
@@ -4828,7 +4839,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     <div class="home-intro">
       <div><p class="home-step-label">STEP 1 OF 2</p>
         <h2>What do you want to do with your Word document?</h2>
-        <p>Choose a Word file first. Then choose what you want to do. No document editing experience needed.</p>
+        <p>Choose a Word file, then choose what to do. You can make several changes before downloading the edited document.</p>
       </div>
       <button class="privacy-pill local-callout" data-wb-action="privacy" type="button">Files stay on this device</button>
     </div>
@@ -4844,12 +4855,16 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
         <button class="btn btn-light" data-wb-action="clear-selection" type="button">Clear selection</button>
       </div>
       <div id="selected-files" class="selected-files"></div>
+      <div id="home-working-copy" class="home-working-copy" hidden>
+        <div><strong id="home-working-copy-title">Your edited document is ready</strong><p id="home-working-copy-status" role="status" aria-live="polite">Changes are kept here until you download the edited Word document.</p></div>
+        <button id="home-save-word" class="btn btn-primary" data-wb-action="home-save-word" type="button">Download edited Word document</button>
+      </div>
       <div id="home-word-actions" class="home-word-actions" aria-label="Choose a Word document action" hidden>
         <button class="home-task-card" data-wb-action="home-word-task" data-task="export" type="button">
-          <strong>Export comments</strong><span>Download a Word report of all comments and replies. The original document stays unchanged.</span>
+          <strong>Export comments</strong><span>Download a report of the current comments, including reviewer-name changes you have made.</span>
         </button>
         <button class="home-task-card" data-wb-action="home-word-task" data-task="rename" type="button">
-          <strong>Change reviewer names</strong><span>Replace a name on comments and tracked changes, then download the edited Word file.</span>
+          <strong>Change reviewer names</strong><span>Replace names on comments and tracked changes. Keep working before downloading.</span>
         </button>
         <button class="home-task-card" data-wb-action="home-word-task" data-task="review" type="button">
           <strong>Review comments and tracked changes</strong><span>Open the detailed editor to view or change individual comments and redlines.</span>
@@ -4870,10 +4885,10 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
         </div>
         <p id="home-rename-count" class="home-rename-count" role="status" aria-live="polite"></p>
         <div class="home-rename-buttons">
-          <button class="btn btn-primary" id="home-rename-download" data-wb-action="home-rename-download" type="button">Download Word document with new name</button>
-          <button class="btn btn-light" data-wb-action="home-rename-back" type="button">Back to choices</button>
+          <button class="btn btn-primary" id="home-rename-apply" data-wb-action="home-rename-apply" type="button">Apply name change</button>
+          <button class="btn btn-light" data-wb-action="home-rename-back" type="button">Back to all actions</button>
         </div>
-        <p class="home-rename-note">You'll receive a new .docx file. Your original won't be overwritten.</p>
+        <p class="home-rename-note">This updates your working copy, not the original. You can change more names, export comments, or download the edited document when you are finished.</p>
       </section>
       <p id="home-task-feedback" class="home-task-feedback" role="status" aria-live="polite" hidden></p>
       <div id="suggestion-actions" class="suggestion-actions"></div>
@@ -5261,7 +5276,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
 
 <dialog id="progress-dialog" class="workbench-dialog privacy-dialog" aria-labelledby="progress-title"><div class="dialog-heading"><div><h2 id="progress-title">Working locally</h2><p id="progress-subtitle">Preparing the operation.</p></div></div><div class="dialog-body"><div class="job-progress"><progress id="job-progress" max="100" value="0"></progress><div class="job-progress-row"><span id="job-progress-label">Starting…</span><span id="job-progress-value">0%</span></div></div><div class="button-row" style="justify-content:flex-end;margin-top:16px"><button id="job-cancel" class="btn btn-danger" data-wb-action="cancel-job" type="button">Cancel</button></div></div></dialog>
 
-<footer class="app-footer">Comment Master v7.2.1 · Document processing stays in your browser · <button class="btn btn-light" data-wb-action="privacy" type="button">Privacy</button> · <a href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">Third-party notices</a></footer>
+<footer class="app-footer">Comment Master v7.2.2 · Document processing stays in your browser · <button class="btn btn-light" data-wb-action="privacy" type="button">Privacy</button> · <a href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">Third-party notices</a></footer>
 
 </body>
 </html>

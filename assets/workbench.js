@@ -5,7 +5,7 @@ import {
   WORKBENCH_VERSION, assertSafeFiles, contextualSuggestions, detectFormat,
   escapeHtml, extensionOf, formatLabel, humanBytes, parsePageRanges,
   productFilename, safeFilename, yieldToMain
-} from './workbench-core.mjs?v=7.2.1';
+} from './workbench-core.mjs?v=7.2.2';
 import {
   addPdfMarks, containsRawString, createPdfFromImages, createTextPdf,
   extractPdf, fillAndFlattenPdf, inspectPdfStructure, loadPdf, mergePdfInputs,
@@ -46,7 +46,6 @@ const app = {
   route: 'home',
   homeFiles: [],
   homeWordTaskBusy: false,
-  pendingHomeRename: null,
   toolTab: 'binder',
   result: null,
   resultTab: 'redline',
@@ -124,10 +123,12 @@ function bindWorkbenchEvents() {
   document.addEventListener('keydown', handleKeydown);
   window.addEventListener('commentmaster:word-opened', () => {
     setDocumentRouteAvailability('word', true);
+    refreshHomeWorkingCopy();
     if (!app.homeWordTaskBusy) switchRoute('word');
   });
   window.addEventListener('commentmaster:word-closed', () => {
     setDocumentRouteAvailability('word', false);
+    refreshHomeWorkingCopy();
     if (app.route === 'word') switchRoute('word');
   });
   window.addEventListener('beforeunload', (event) => {
@@ -243,7 +244,8 @@ async function runAction(action, button) {
     'open-files': chooseHomeFiles,
     'choose-home-word': chooseHomeWord,
     'home-word-task': () => runHomeWordTask(button.dataset.task),
-    'home-rename-download': downloadRenamedWord,
+    'home-rename-apply': applyHomeRename,
+    'home-save-word': downloadWorkingWord,
     'home-rename-back': showHomeWordChoices,
     'open-word-file': () => openWordFromSelectionOrPicker(true),
     'open-pdf-file': () => openPdfFromSelectionOrPicker(true),
@@ -321,6 +323,7 @@ function switchRoute(route, moveFocus = true) {
   });
   document.querySelectorAll('[data-route-actions]').forEach((group) => { group.hidden = group.dataset.routeActions !== route; });
   document.body.dataset.route = route;
+  if (route === 'home') refreshHomeWorkingCopy();
   closeNavigation();
   const heading = document.querySelector(`[data-route-view="${route}"]:not([hidden]) h2`);
   if (heading && moveFocus) {
@@ -710,14 +713,19 @@ async function chooseHomeWord() {
 async function stageHomeFiles(files, options = {}) {
   const list = Array.from(files || []);
   if (list.length) assertSafeFiles(list);
+  const current = app.homeFiles.length === 1 ? app.homeFiles[0] : null;
+  const word = window.CommentMasterWord;
+  const replacesCurrent = current && (!list.length || list.length !== 1 || list[0] !== current);
+  if (!options.skipUnsavedWarning && replacesCurrent && word?.isCurrentFile?.(current) && word?.hasUnsavedChanges?.()) {
+    if (!window.confirm('Your Word document has changes that have not been downloaded. Choose Cancel to keep working, or OK to replace the selected file.')) return false;
+  }
   app.homeFiles = list;
-  app.pendingHomeRename = null;
   renderHomeSelection();
-  if (!list.length) return;
+  if (!list.length) return true;
   if (options.stayOnHome) {
     switchRoute('home', false);
     $('home-selection-title').focus();
-    return;
+    return true;
   }
   if (list.length === 1) {
     const format = detectFormat(list[0]);
@@ -725,6 +733,7 @@ async function stageHomeFiles(files, options = {}) {
     if (format === 'pdf') return openPdfFromSelectionOrPicker();
   }
   switchRoute('home');
+  return true;
 }
 
 function renderHomeSelection() {
@@ -737,6 +746,7 @@ function renderHomeSelection() {
   $('suggestion-actions').hidden = singleWord;
   $('home-selection-title').textContent = singleWord ? 'What would you like to do?' : 'Choose what to do with your files';
   showHomeTaskFeedback('');
+  refreshHomeWorkingCopy();
   if (!files.length) {
     $('selected-files').innerHTML = '';
     $('suggestion-actions').innerHTML = '';
@@ -746,9 +756,8 @@ function renderHomeSelection() {
   $('home-selection-status').textContent = singleWord ? 'Word document ready. Pick one of the options below.' : `${files.length} file${files.length === 1 ? '' : 's'} selected. Recommended next steps:`;
   $('selected-files').innerHTML = files.map((file, index) => `<article class="selected-file"><span class="file-type">${escapeHtml(detectFormat(file).toUpperCase())}</span><div><strong title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</strong><small>${escapeHtml(formatLabel(detectFormat(file)))} · ${humanBytes(file.size)}</small></div><button type="button" class="icon-btn" data-home-remove="${index}" aria-label="Remove ${escapeHtml(file.name)}">×</button></article>`).join('');
   $('selected-files').querySelectorAll('[data-home-remove]').forEach((button) => button.addEventListener('click', () => {
-    app.homeFiles.splice(Number(button.dataset.homeRemove), 1);
-    app.pendingHomeRename = null;
-    renderHomeSelection();
+    const next = app.homeFiles.filter((_, index) => index !== Number(button.dataset.homeRemove));
+    runGuarded(stageHomeFiles(next, { stayOnHome: true }));
   }));
   $('suggestion-actions').innerHTML = contextualSuggestions(files).map((key, index) => {
     const suggestion = SUGGESTIONS[key] || [capitalize(key), key];
@@ -768,7 +777,26 @@ function showHomeWordChoices() {
   $('home-word-actions').hidden = false;
   $('home-rename-panel').hidden = true;
   $('home-selection-title').textContent = 'What would you like to do?';
+  refreshHomeWorkingCopy();
   $('home-word-actions').querySelector('button')?.focus({ preventScroll: true });
+}
+
+function refreshHomeWorkingCopy() {
+  const file = app.homeFiles.length === 1 && detectFormat(app.homeFiles[0]) === 'docx' ? app.homeFiles[0] : null;
+  const word = window.CommentMasterWord;
+  const current = Boolean(file && word?.isCurrentFile?.(file));
+  const snapshot = current ? word.snapshot() : null;
+  const hasEdits = Boolean(snapshot?.modifiedParts?.length);
+  const unsaved = current && Boolean(word?.hasUnsavedChanges?.());
+  $('home-working-copy').hidden = !hasEdits && !unsaved;
+  if (!current || (!hasEdits && !unsaved)) return;
+  $('home-working-copy-title').textContent = unsaved ? 'Your edits are ready to download' : 'Keep working with your edited document';
+  $('home-working-copy-status').textContent = unsaved
+    ? 'Changes are saved in this browser tab, not yet in a downloaded Word document. You can continue editing or export comments first.'
+    : 'Your last download includes these edits. You can keep working or download the current version again.';
+  $('home-selection-status').textContent = unsaved
+    ? 'Your working copy has changes. Choose another action or download when ready.'
+    : 'Word document ready. You can continue with more actions.';
 }
 
 async function ensureHomeWordLoaded() {
@@ -803,7 +831,7 @@ function renderHomeRenameOptions(snapshot) {
       : 'No reviewer names were found in this document.';
   };
   select.onchange = update;
-  $('home-rename-download').disabled = authors.size === 0;
+  $('home-rename-apply').disabled = authors.size === 0;
   $('home-rename-to').value = '';
   update();
   $('home-word-actions').hidden = true;
@@ -818,7 +846,8 @@ async function runHomeWordTask(task) {
   if (task === 'compare') {
     const original = app.homeFiles[0];
     const word = window.CommentMasterWord;
-    if (word?.openCompareWithFiles) word.openCompareWithFiles(original, null);
+    if (word?.isCurrentFile?.(original) && word?.openCompareUsingCurrent) word.openCompareUsingCurrent();
+    else if (word?.openCompareWithFiles) word.openCompareWithFiles(original, null);
     else openCompare('documents');
     return;
   }
@@ -834,7 +863,8 @@ async function runHomeWordTask(task) {
         throw new Error('This Word document has no comments to export.');
       }
       await word.exportComments();
-      showHomeTaskFeedback('Your comments report has been downloaded. Your original document was not changed.');
+      showHomeTaskFeedback('Comments report downloaded using your current reviewer names and other edits. Your working document is still available for more actions.');
+      refreshHomeWorkingCopy();
     } else renderHomeRenameOptions(word.snapshot());
   } catch (error) {
     showHomeTaskFeedback(String(error.message || error), true);
@@ -844,7 +874,7 @@ async function runHomeWordTask(task) {
   }
 }
 
-async function downloadRenamedWord() {
+async function applyHomeRename() {
   if (app.homeWordTaskBusy) return;
   const from = $('home-rename-from').value;
   const to = $('home-rename-to').value.trim();
@@ -855,17 +885,29 @@ async function downloadRenamedWord() {
   app.homeWordTaskBusy = true;
   try {
     const word = await ensureHomeWordLoaded();
-    if (!app.pendingHomeRename || app.pendingHomeRename.file !== app.homeFiles[0] ||
-        app.pendingHomeRename.from !== from || app.pendingHomeRename.to !== to) {
-      const changed = word.renameReviewer(from, to);
-      if (!changed) throw new Error('That reviewer already has this name. No changes were needed.');
-      app.pendingHomeRename = { file: app.homeFiles[0], from, to, changed };
+    const changed = word.renameReviewer(from, to);
+    if (!changed) {
+      showHomeTaskFeedback('That reviewer already has this name. No changes were needed.', true);
+      return;
     }
+    showHomeWordChoices();
+    showHomeTaskFeedback(`Changed ${changed} comment${changed === 1 ? '' : 's'} or tracked change${changed === 1 ? '' : 's'} to "${to}". You can make more changes, export comments, or download the edited Word file when finished.`);
+  } catch (error) {
+    showHomeTaskFeedback(String(error.message || error), true);
+    throw error;
+  } finally {
+    app.homeWordTaskBusy = false;
+  }
+}
+
+async function downloadWorkingWord() {
+  if (app.homeWordTaskBusy) return;
+  app.homeWordTaskBusy = true;
+  try {
+    const word = await ensureHomeWordLoaded();
     await word.saveCurrent();
-    const count = app.pendingHomeRename.changed;
-    app.pendingHomeRename = null;
-    showHomeTaskFeedback(`Downloaded an updated Word file with ${count} reviewer name change${count === 1 ? '' : 's'}. Your original file was not overwritten.`);
-    renderHomeRenameOptions(word.snapshot());
+    refreshHomeWorkingCopy();
+    showHomeTaskFeedback('Edited Word document downloaded. Your current working copy remains available for more actions.');
   } catch (error) {
     showHomeTaskFeedback(String(error.message || error), true);
     throw error;
@@ -2916,7 +2958,7 @@ async function clearLocalWorkspace() {
   const wordWork = Boolean(window.CommentMasterWord && window.CommentMasterWord.hasDocument());
   const hasWork = app.homeFiles.length || pdfState.file || toolState.binder.length || toolState.convert.length || toolState.batch.length || app.cleanWordFile || comparisonWork || wordWork;
   if (hasWork && !window.confirm('Clear selected files, PDF working changes, queues, and completed in-memory results from this browser tab? Saved downloads are not affected.')) return;
-  stageHomeFiles([]);
+  await stageHomeFiles([], { skipUnsavedWarning: true });
   toolState.binder = []; toolState.convert = []; toolState.batch = []; toolState.batchResults = []; toolState.inspectorFiles = [];
   app.cleanWordFile = null; app.result = null;
   if (typeof window.CommentMasterWord?.clearLocalDocument === 'function') window.CommentMasterWord.clearLocalDocument();

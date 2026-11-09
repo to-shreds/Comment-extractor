@@ -2,46 +2,44 @@
 
 ## Current state
 
-Comment Master v7.2.1 fixes the first-click Word upload regression introduced in v7.2.0. The Word-first two-step interface and document processing engines remain unchanged. This is a verified hotfix intended for the `main` branch and GitHub Pages.
+Comment Master v7.2.2 is a targeted follow-up to v7.2.1. The code is ready for a release QA rerun before merging. It restores the ability to perform several actions on one Word document without downloading an edited DOCX after each action.
 
-- Implementation: `to-shreds/Comment-extractor`, branch `main` after release.
-- Site: https://to-shreds.github.io/Comment-extractor/
-- Release: v7.2.1; manifest build ID `7f6136ffa20fadffbbac4dfb`.
-- Hotfix PR: https://github.com/to-shreds/Comment-extractor/pull/3
-- Source and release history: `README.md`, `CHANGELOG.md`.
+- Canonical code: `to-shreds/Comment-extractor`.
+- Working branch: `fix/7.2.2-word-session`; release target: `main`.
+- Release pull request: https://github.com/to-shreds/Comment-extractor/pull/4
+- Current live site is the previous v7.2.1 release: https://to-shreds.github.io/Comment-extractor/
+- Root build must be generated and synchronized from `index.html` and `src/` via `npm run build:pages`.
 - Readiness: `to-shreds/ProjectStatus/projects/comment-master/STATUS.md`.
-- Previous main commit: `1492f38c91b05aa1c8e8928b2eb65da874b307f8` (v7.2.0).
 
-## Root cause and fix
+## Implemented v7.2.2 changes
 
-The v7.2.0 HTML introduced a `Choose Word document` action but still loaded `assets/workbench.js` from the same URL used by v7.1.1. A browser controlled by an older cache-first service worker could receive the new HTML and old JavaScript simultaneously. The old JavaScript did not recognize the new action, so the button did nothing. The existing browser tests set files directly on the input and therefore missed this specific failure.
+- Home remains Word-first: choose one `.docx` and choose an action in plain language.
+- **Change reviewer names** now uses **Apply name change**, which edits the in-memory Word document and returns to the same action menu. It no longer automatically downloads a file.
+- **Export comments** writes a report from the current in-memory document, including earlier reviewer-name edits. The report download does not reset the working copy.
+- **Download edited Word document** is separate and optional, visible once changes exist; the user can edit again after saving.
+- Returning from detailed Word review restores the same Home working copy. Compare uses the in-memory Word document if loaded, and Clean Copy uses the existing current-document path.
+- Users are warned before replacing the selected source file or clearing it while undownloaded changes exist.
+- Pending review-row edits are committed before name-changing or exporting comments.
+- Source, tests, and versioned JS/CSS/core paths are updated to v7.2.2, retaining the v7.2.1 cache-staleness upload fix.
 
-- `index.html` now loads the application CSS and JS using `?v=7.2.1` URLs.
-- `src/workbench.js` imports the core with `?v=7.2.1` and bypasses the optional `showOpenFilePicker` path for this primary upload, selecting through the standard hidden file input instead.
-- The updated `src/service-worker.js` maps its own versioned requests to the exact precached core asset URL; an older active worker that does not recognize these URLs passes them through to the network. The new worker continues to support offline use without forced activation.
-- The Word upload, task chooser, direct comment report, guided reviewer rename, and all previous advanced capabilities stay intact. No remote document upload, telemetry, or persistent document archive was added.
+## Verification state
 
-## Verification
-
-Release QA completed successfully in GitHub Actions https://github.com/to-shreds/Comment-extractor/actions/runs/42669675696:
-
-- Both legacy Word export/comparison regression suites passed.
-- All 46 unit tests passed.
-- All 5 privacy/offline tests passed, including the versioned-cache regression.
-- All 53 Chromium browser tests passed, including a test that **clicks the visible Word upload button**, receives the file chooser, selects a Word DOCX, and verifies the simple task menu. Existing reviewer-name editing, comments report downloads, PDF workflows, comparison, and offline use remain covered.
-- `npm run build:pages` generated and synchronized the root Pages runtime with version `7.2.1` and build ID `7f6136ffa20fadffbbac4dfb`. The runtime was verified in GitHub source after the successful build.
+The first v7.2.2 GitHub Action run (https://github.com/to-shreds/Comment-extractor/actions/runs/42672989726) passed both legacy suites, all 46 unit tests, all 5 privacy tests, and 52 of 55 Chromium tests. Three browser assertions failed solely on case-sensitive text and the original filename appearing in a report title, not on failure to preserve the changed reviewer or to produce DOCX downloads. These assertions were corrected in `tests/browser/workbench.spec.mjs`. The complete suite must still pass with those corrections before release. Later GitHub Actions attempts reported no jobs, an external CI dispatch issue; continue trying a full run rather than claiming those checks passed.
 
 ## Do not break
 
-- Keep documents browser-local and do not introduce document uploads, analytics, or persistent storage.
-- Keep the Home page one-file-first and understandable to a nontechnical user.
-- The two primary actions must work without navigating the full editor.
-- Preserve the original file and existing Word/PDF functionality, comparison, and advanced tools.
-- Keep CSS, JS, and imported core asset URLs version-specific on every future release. Update the worker mapping and release tests accordingly.
-- Do not revert to the optional native file-picker API for the primary upload without a tested reason.
-- Test the **visible upload button**, not only direct file-input assignment, and run `npm run qa` plus `npm run build:pages` before publishing.
-- Keep a rollback route to v7.2.0 and the earlier v7.1.1 commit `78e51ce50f4982fed6fd37282d94f8fbfbebaccc`.
+- All document processing must stay browser-local, with no uploads, analytics, or document persistence.
+- Preserve the original source document. No automatic DOCX export during Apply.
+- Preserve in-memory edits across multiple reviewer renames, comments report exports, document downloads, and navigation between Home and detailed review.
+- Keep full Word editing, comparison, PDF tools, binder, conversion, batch processing, and older file-handling protections.
+- Keep v7.2.1 versioned asset-loading strategy on every release to avoid old service-worker caches.
+- A button-click-based file picker regression and complete `npm run qa` are mandatory before publication.
+- Last known-good main: v7.2.1, commit `1113319227344101f0df8ca5286cbe1ac4f22c69`.
 
-## Remaining work
+## Next actions
 
-No known code or QA defects remain in v7.2.1. Browser behavior should still be validated in real usage, especially for people who have the older worker installed. The remaining platform limitations are documented in README. Next action after verified Pages deployment is user confirmation that the button works in their Chrome session.
+1. Obtain a passing `npm run qa` for the full v7.2.2 branch.
+2. Run `npm run build:pages`, verify versioned root assets and build manifest match source, then merge PR #4.
+3. Verify GitHub Pages build/deploy succeeded and update this handoff and ProjectStatus to READY.
+
+Do not treat the PR as deployed until these steps are verified.
