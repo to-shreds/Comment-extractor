@@ -45,6 +45,8 @@ let redactionSearchToken = 0;
 const app = {
   route: 'home',
   homeFiles: [],
+  homeWordTaskBusy: false,
+  pendingHomeRename: null,
   toolTab: 'binder',
   result: null,
   resultTab: 'redline',
@@ -122,7 +124,7 @@ function bindWorkbenchEvents() {
   document.addEventListener('keydown', handleKeydown);
   window.addEventListener('commentmaster:word-opened', () => {
     setDocumentRouteAvailability('word', true);
-    switchRoute('word');
+    if (!app.homeWordTaskBusy) switchRoute('word');
   });
   window.addEventListener('commentmaster:word-closed', () => {
     setDocumentRouteAvailability('word', false);
@@ -134,7 +136,13 @@ function bindWorkbenchEvents() {
     event.returnValue = '';
   });
 
-  bindDropZone($('home-drop-zone'), (files) => stageHomeFiles(files));
+  bindDropZone($('home-drop-zone'), (files) => {
+    const list = Array.from(files || []);
+    if (list.length !== 1 || detectFormat(list[0]) !== 'docx' || !/\.docx$/i.test(list[0].name)) {
+      throw new Error('Drop one Word .docx file here. Use the extra tools below for PDFs or multiple files.');
+    }
+    return stageHomeFiles(list, { stayOnHome: true });
+  });
   bindDropZone($('pdf-empty'), (files) => {
     const pdf = Array.from(files).find((file) => detectFormat(file) === 'pdf');
     if (pdf) return openPdfFile(pdf);
@@ -233,6 +241,10 @@ async function runAction(action, button) {
     'toggle-navigation': toggleNavigation,
     'toggle-pdf-more': togglePdfMore,
     'open-files': chooseHomeFiles,
+    'choose-home-word': chooseHomeWord,
+    'home-word-task': () => runHomeWordTask(button.dataset.task),
+    'home-rename-download': downloadRenamedWord,
+    'home-rename-back': showHomeWordChoices,
     'open-word-file': () => openWordFromSelectionOrPicker(true),
     'open-pdf-file': () => openPdfFromSelectionOrPicker(true),
     'clear-selection': () => stageHomeFiles([]),
@@ -684,12 +696,29 @@ async function chooseHomeFiles() {
   if (files.length) await stageHomeFiles(files);
 }
 
-async function stageHomeFiles(files) {
+async function chooseHomeWord() {
+  const files = await chooseFiles({
+    inputId: 'home-word-file-input', multiple: false, accept: ['.docx'], description: 'Word document'
+  });
+  if (!files.length) return;
+  if (detectFormat(files[0]) !== 'docx' || !/\.docx$/i.test(files[0].name)) {
+    throw new Error('Choose a Word document with a .docx filename.');
+  }
+  await stageHomeFiles([files[0]], { stayOnHome: true });
+}
+
+async function stageHomeFiles(files, options = {}) {
   const list = Array.from(files || []);
   if (list.length) assertSafeFiles(list);
   app.homeFiles = list;
+  app.pendingHomeRename = null;
   renderHomeSelection();
   if (!list.length) return;
+  if (options.stayOnHome) {
+    switchRoute('home', false);
+    $('home-selection-title').focus({ preventScroll: true });
+    return;
+  }
   if (list.length === 1) {
     const format = detectFormat(list[0]);
     if (format === 'docx') return openWordFromSelectionOrPicker();
@@ -702,16 +731,23 @@ function renderHomeSelection() {
   const region = $('home-selection');
   const files = app.homeFiles;
   region.hidden = !files.length;
+  const singleWord = files.length === 1 && detectFormat(files[0]) === 'docx';
+  $('home-word-actions').hidden = !singleWord;
+  $('home-rename-panel').hidden = true;
+  $('suggestion-actions').hidden = singleWord;
+  $('home-selection-title').textContent = singleWord ? 'What would you like to do?' : 'Choose what to do with your files';
+  showHomeTaskFeedback('');
   if (!files.length) {
     $('selected-files').innerHTML = '';
     $('suggestion-actions').innerHTML = '';
     $('home-selection-status').textContent = '';
     return;
   }
-  $('home-selection-status').textContent = `${files.length} file${files.length === 1 ? '' : 's'} selected. Recommended next steps:`;
+  $('home-selection-status').textContent = singleWord ? 'Word document ready. Pick one of the options below.' : `${files.length} file${files.length === 1 ? '' : 's'} selected. Recommended next steps:`;
   $('selected-files').innerHTML = files.map((file, index) => `<article class="selected-file"><span class="file-type">${escapeHtml(detectFormat(file).toUpperCase())}</span><div><strong title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</strong><small>${escapeHtml(formatLabel(detectFormat(file)))} · ${humanBytes(file.size)}</small></div><button type="button" class="icon-btn" data-home-remove="${index}" aria-label="Remove ${escapeHtml(file.name)}">×</button></article>`).join('');
   $('selected-files').querySelectorAll('[data-home-remove]').forEach((button) => button.addEventListener('click', () => {
     app.homeFiles.splice(Number(button.dataset.homeRemove), 1);
+    app.pendingHomeRename = null;
     renderHomeSelection();
   }));
   $('suggestion-actions').innerHTML = contextualSuggestions(files).map((key, index) => {
@@ -768,7 +804,13 @@ async function handleFileInput(input) {
   if (input.dataset.pendingPicker) return;
   const files = Array.from(input.files || []);
   if (!files.length) return;
-  if (input.id === 'workbench-file-input') await stageHomeFiles(files);
+  if (input.id === 'home-word-file-input') {
+    if (files.length !== 1 || detectFormat(files[0]) !== 'docx' || !/\.docx$/i.test(files[0].name)) {
+      throw new Error('Choose one Word .docx file.');
+    }
+    await stageHomeFiles(files, { stayOnHome: true });
+  }
+  else if (input.id === 'workbench-file-input') await stageHomeFiles(files);
   else if (input.id === 'pdf-file-input') await openPdfFile(files[0]);
   else if (input.id === 'binder-files') addToolFiles('binder', files);
   else if (input.id === 'convert-files') addToolFiles('convert', files);
