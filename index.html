@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#243f77">
   <meta name="color-scheme" content="light">
   <link rel="manifest" href="manifest.webmanifest">
-  <title>Comment Master v7.2.2</title>
+  <title>Comment Master v7.3.0</title>
   <style>
 :root {
   color-scheme: light;
@@ -344,7 +344,8 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
 }
 
   </style>
-  <link rel="stylesheet" href="assets/workbench.css?v=7.2.2">
+  <link rel="stylesheet" href="assets/workbench.css?v=7.3.0">
+  <link rel="stylesheet" href="assets/linear-workspace.css?v=7.3.0">
   <script>
 
 
@@ -656,7 +657,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
 (function () {
   'use strict';
 
-  const VERSION = '7.2.2';
+  const VERSION = '7.3.0';
   const WML_TRANSITIONAL = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
   const WML_STRICT = 'http://purl.oclc.org/ooxml/wordprocessingml/main';
   const WML_NAMESPACES = new Set([WML_TRANSITIONAL, WML_STRICT]);
@@ -721,7 +722,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     mode: 'all',
     tab: 'overview',
     page: 1,
-    pageSize: 250,
+    pageSize: 25,
     busy: false,
     loadToken: 0,
     documentToken: 0,
@@ -737,7 +738,10 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     lastRegexRows: [],
     linkCheckRun: 0,
     linkCheckControllers: new Set(),
-    statusTimer: null
+    statusTimer: null,
+    workflowActivity: {},
+    workflowDownloads: {},
+    workflowContext: ''
   };
 
   const comparisonState = {
@@ -1368,6 +1372,9 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
   function commitCandidate(candidate) {
     cancelExternalLinkChecks();
     state.doc = candidate;
+    state.workflowActivity = {};
+    state.workflowDownloads = {};
+    state.workflowContext = '';
     state.documentToken = candidate.token;
     state.selected = new Set();
     state.itemByUid = candidate.itemByUid;
@@ -1413,7 +1420,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     ui.batchScope.value = 'selected'; ui.batchSeqStep.value = '5'; ui.batchShiftAmt.value = '60'; ui.batchShiftUnit.value = 'minutes';
     ui.randomOrdered.checked = true; ui.quickScope.value = 'all'; ui.rxScope.value = 'all';
     ui.rxI.checked = ui.rxM.checked = ui.rxS.checked = false;
-    ui.exportFormat.value = 'filtered'; ui.exportSummary.checked = false; ui.pageSize.value = '250'; state.pageSize = 250;
+    ui.exportFormat.value = 'filtered'; ui.exportSummary.checked = false; ui.pageSize.value = '25'; state.pageSize = 25;
     toggleAdvancedTabs(false);
     toggleControls(false);
     clearRegex();
@@ -1425,6 +1432,9 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     state.loadToken += 1;
     if (!state.doc) { clearError(); ui.file.value = ''; ui.busyLabel.textContent = 'Working…'; setBusy(false); return; }
     state.doc = null;
+    state.workflowActivity = {};
+    state.workflowDownloads = {};
+    state.workflowContext = '';
     state.selected.clear();
     state.itemByUid.clear();
     state.undo = [];
@@ -2265,7 +2275,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
       const text = row.querySelector('[data-field="text"]');
       if (author && author.value !== item.author) changes.push([item, 'author', author.value]);
       const dateValue = date && date.value ? fromLocalInput(date.value) : '';
-      if (date && date.value !== toLocalInput(item.date)) changes.push([item, 'date', dateValue]);
+      if (date && (date.value.length === 16 ? `${date.value}:00` : date.value) !== toLocalInput(item.date)) changes.push([item, 'date', dateValue]);
       if (text && text.textContent !== item.text) changes.push([item, 'text', text.textContent || '']);
     });
     return changes;
@@ -2552,7 +2562,8 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     const serializer = new XMLSerializer();
     const snapshot = {
       label, parts: new Map(), modifiedParts: new Set(state.doc.modifiedParts), dirty: state.dirty,
-      selected: new Set(state.selected), lastSavedBlob: state.lastSavedBlob, bytes: 0
+      selected: new Set(state.selected), lastSavedBlob: state.lastSavedBlob, bytes: 0,
+      workflowActivity: { ...state.workflowActivity }
     };
     targets.forEach((path) => {
       const doc = state.doc.xmlDocs.get(path);
@@ -2597,6 +2608,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     state.dirty = snapshot.dirty;
     state.pendingEdits = false;
     state.lastSavedBlob = snapshot.lastSavedBlob;
+    state.workflowActivity = { ...(snapshot.workflowActivity || {}) };
     state.mutationVersion += 1;
     cancelExternalLinkChecks();
     collectActivity(state.doc);
@@ -2616,6 +2628,8 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
   }
 
   function finishMutation(paths, message) {
+    const category = state.workflowContext || workflowCategory(message);
+    state.workflowActivity[category] = (state.workflowActivity[category] || 0) + 1;
     paths.forEach((path) => state.doc.modifiedParts.add(path));
     state.mutationVersion += 1;
     state.dirty = true;
@@ -2635,6 +2649,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
       const blob = await buildDocxBlob();
       if (!state.doc || state.documentToken !== docToken) throw new Error('The active document changed while the save was being prepared.');
       saveAs(blob, outputName);
+      state.workflowDownloads.document = version;
       if (state.mutationVersion === version) {
         state.dirty = false;
         state.savedMutationVersion = version;
@@ -3146,12 +3161,13 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     ui.compareDocResult.textContent = 'Preparing documents…';
     await withComparisonBusy('Preparing document comparison…', async () => {
       refreshAfterVisibleCommit(commitVisibleEdits());
+      const workflowSourceToken = state.doc && [ui.compareOriginalSource.value, ui.compareChangedSource.value].includes('current') ? state.documentToken : null;
       const original = await resolveComparisonSource(ui.compareOriginalSource, ui.compareOriginalFile, 'original document');
       const changed = await resolveComparisonSource(ui.compareChangedSource, ui.compareChangedFile, 'changed document');
       const author = cleanRevisionAuthor(ui.compareDocAuthor.value || 'Comparison');
       const result = await buildComparisonOutput(original, [{ candidate: changed, author, sourceName: changed.fileName }]);
       const filename = comparisonFilename(original.fileName, 'Compare');
-      deliverWorkbenchResult('comparison', { blob: result.blob, filename, stats: result.stats, preview: result.preview, originalName: original.fileName, revisedName: changed.fileName });
+      deliverWorkbenchResult('comparison', { blob: result.blob, filename, stats: result.stats, preview: result.preview, originalName: original.fileName, revisedName: changed.fileName, workflowSourceToken });
       ui.compareDocResult.textContent = comparisonSummary(result.stats, filename);
       setStatus(`Comparison ready: ${filename}.`, true);
     });
@@ -3184,6 +3200,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     ui.combineResult.textContent = 'Preparing reviewed versions…';
     await withComparisonBusy('Preparing combined commentary…', async () => {
       refreshAfterVisibleCommit(commitVisibleEdits());
+      const workflowSourceToken = state.doc && (ui.combineBaseSource.value === 'current' || comparisonState.reviews.some((entry) => entry.type === 'current')) ? state.documentToken : null;
       const base = await resolveComparisonSource(ui.combineBaseSource, ui.combineBaseFile, 'base document');
       const reviews = [];
       const report = [];
@@ -3204,7 +3221,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
       setBusy(true, 'Merging independent revisions and comments…');
       const result = await buildComparisonOutput(base, reviews);
       const filename = comparisonFilename(base.fileName, 'Combined Commentary');
-      deliverWorkbenchResult('combined-commentary', { blob: result.blob, filename, stats: result.stats, report, baseName: base.fileName });
+      deliverWorkbenchResult('combined-commentary', { blob: result.blob, filename, stats: result.stats, report, baseName: base.fileName, workflowSourceToken });
       ui.combineResult.textContent = comparisonSummary(result.stats, filename);
       setStatus(`Combined review ready: ${filename}.`, true);
     });
@@ -4541,6 +4558,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
   }
 
   function updateDirtyUi() {
+    window.dispatchEvent(new CustomEvent('commentmaster:word-state'));
     if (ui.filePill) ui.filePill.classList.toggle('dirty', hasUnsavedChanges());
     updateDocumentButtons();
     if (state.tab === 'forensics') renderForensics();
@@ -4635,8 +4653,142 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     } : null;
   }
 
+
+  function workflowCategory(message = '') {
+    if (/metadata/i.test(message)) return 'metadata';
+    if (/timestamp|date clearing|date change|time shift/i.test(message)) return 'times';
+    if (/regex|regular.expression|find.*replace|replaced text/i.test(message)) return 'find';
+    if (/ghost|tracked replacement/i.test(message)) return 'redlines';
+    if (/global reviewer|reviewer name change|quick author|author replacement/i.test(message)) return 'names';
+    return 'review';
+  }
+
+  function workflowInfo() {
+    if (!state.doc) return null;
+    const authors = new Map();
+    state.doc.items.forEach((item) => {
+      const key = authorFilterValue(item.author, item.authorPresent);
+      const entry = authors.get(key) || { key, name: item.author || '(No name)', count: 0 };
+      entry.count++; authors.set(key, entry);
+    });
+    return {
+      token: state.documentToken, fileName: state.doc.fileName, sourceFile: state.doc.sourceFile,
+      count: state.doc.items.length, comments: state.doc.items.filter((i) => i.type === 'com').length,
+      redlines: state.doc.items.filter((i) => i.type !== 'com').length,
+      dirty: hasUnsavedChanges(), busy: state.busy, version: state.mutationVersion,
+      authors: Array.from(authors.values()), activity: { ...state.workflowActivity },
+      downloads: { ...state.workflowDownloads }, canUndo: state.undo.length > 0,
+      metadata: { ...state.doc.metadata }
+    };
+  }
+
+  function workflowRows(scope = 'all', author = '__all__') {
+    requireFile();
+    return state.doc.items.filter((item) =>
+      (scope === 'all' || (scope === 'comments' ? item.type === 'com' : scope === 'selected' ? state.selected.has(item.uid) : item.type !== 'com')) &&
+      (author === '__all__' || authorFilterValue(item.author, item.authorPresent) === author));
+  }
+
+  function workflowRename({ from = '__all__', name = '', scope = 'all' } = {}) {
+    requireFile(); refreshAfterVisibleCommit(commitVisibleEdits());
+    const replacement = String(name).trim();
+    if (!replacement) throw new Error('Enter the new reviewer name.');
+    if (replacement.length > 255) throw new Error('Keep reviewer names to 255 characters or fewer.');
+    state.workflowContext = 'names';
+    try {
+      return applyBatch(workflowRows(scope, from), 'Reviewer name change', (item) => {
+        if (item.authorPresent && item.author === replacement) return false;
+        patchItemField(item, 'author', replacement); return true;
+      });
+    } finally { state.workflowContext = ''; }
+  }
+
+  function workflowDates(options = {}) {
+    requireFile(); refreshAfterVisibleCommit(commitVisibleEdits());
+    const rows = workflowRows(options.scope, options.author);
+    const mode = options.mode || 'set';
+    let values;
+    const date = (value) => {
+      const n = new Date(value).getTime();
+      if (!Number.isFinite(n)) throw new Error('Choose a valid date and time.');
+      return n;
+    };
+    if (mode === 'clear') values = rows.map(() => '');
+    else if (mode === 'set') values = rows.map(() => new Date(date(options.date)).toISOString());
+    else if (mode === 'shift') {
+      const minutes = Number(options.minutes);
+      if (!Number.isFinite(minutes) || Math.abs(minutes) > 52560000 || minutes === 0) throw new Error('Enter a nonzero shift of no more than 100 years, in minutes.');
+      values = rows.map((item) => item.date && Number.isFinite(Date.parse(item.date)) ? new Date(date(item.date) + minutes * 60000).toISOString() : item.date);
+    } else if (mode === 'sequence') {
+      const start = date(options.date), minutes = Number(options.minutes);
+      if (!Number.isFinite(minutes) || minutes < 0 || minutes > 52560000) throw new Error('Enter a valid, nonnegative interval in minutes.');
+      values = rows.map((_, index) => new Date(start + index * minutes * 60000).toISOString());
+    } else if (mode === 'random') {
+      const start = date(options.date), end = date(options.end);
+      if (end < start) throw new Error('The end of the date range must follow the start.');
+      const times = rows.map(() => Math.round(start + Math.random() * (end - start)));
+      if (options.ordered !== false) times.sort((a,b) => a-b);
+      values = times.map((n) => new Date(n).toISOString());
+    } else throw new Error('Choose a date operation.');
+    state.workflowContext = 'times';
+    try {
+      return applyBatch(rows, 'Review timestamp update', (item, index) => {
+        if (item.date === values[index] && !(mode === 'clear' && item.datePresent)) return false;
+        patchItemField(item, 'date', values[index]); return true;
+      });
+    } finally { state.workflowContext = ''; }
+  }
+
+  function originalParagraphText(item) {
+    if (item.type === 'com') return item.on || '';
+    const paragraph = closestWordAncestor(item.node, 'p', state.doc);
+    if (!paragraph) return item.type === 'del' || item.type === 'moveFrom' ? item.text : '';
+    const parts = [];
+    const walk = (node) => {
+      if (node.nodeType !== 1) return;
+      if (node.namespaceURI === state.doc.wNs) {
+        if (['ins', 'moveTo', 'pPr', 'rPr', 'sectPr'].includes(node.localName)) return;
+        if (['t','delText'].includes(node.localName)) { parts.push(node.textContent || ''); return; }
+        if (node.localName === 'tab') parts.push('\t');
+        if (['br','cr'].includes(node.localName)) parts.push('\n');
+      }
+      Array.from(node.childNodes || []).forEach(walk);
+    };
+    walk(paragraph); return parts.join('');
+  }
+
+  async function workflowExportSummary(options) {
+    requireFile(); refreshAfterVisibleCommit(commitVisibleEdits());
+    if (!window.CMReviewSummary) throw new Error('The review summary writer is unavailable. Reload the page.');
+    return withDocumentBusy('Building review summary…', async () => {
+      const version = state.mutationVersion;
+      const items = state.doc.items.map((item) => ({
+        type: item.type, label: item.label, author: item.author, date: item.date,
+        text: item.text, on: item.on, original: originalParagraphText(item),
+        part: item.part, partLabel: item.partLabel, pg: item.pg, replyToId: item.replyToId || ''
+      }));
+      const result = await window.CMReviewSummary.build({
+        items, fileName: state.doc.fileName, mainPart: state.doc.mainPart, wNs: state.doc.wNs,
+        blob: options.includeOriginal ? await buildDocxBlob() : null
+      }, options);
+      const name = state.doc.fileName.replace(/\.docx$/i, '') + ` (Review summary ${editDateStamp(new Date())}).docx`;
+      saveAs(result.blob, name);
+      state.workflowDownloads.summary = version;
+      window.dispatchEvent(new CustomEvent('commentmaster:word-state'));
+      setStatus(`Downloaded ${name}. Your working document is unchanged.`, true);
+      return { ...result, blob: undefined, name };
+    });
+  }
+
   window.CommentMasterWord = Object.freeze({
     version: VERSION,
+    workflowInfo: () => workflowInfo(),
+    workflowRename: (options) => workflowRename(options),
+    workflowDates: (options) => workflowDates(options),
+    workflowRemoveMetadata: () => { const before = state.mutationVersion; wipeMeta(); return state.mutationVersion !== before; },
+    workflowExportSummary: (options) => workflowExportSummary(options),
+    workflowUndo: () => undoLast(),
+    workflowCommit: () => refreshAfterVisibleCommit(commitVisibleEdits()),
     openFile: (file) => loadFile(file),
     close: () => closeDocument(),
     clearLocalDocument: () => closeDocument(true),
@@ -4711,7 +4863,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
 })();
 
   </script>
-  <script type="module" src="assets/workbench.js?v=7.2.2"></script>
+  <script type="module" src="assets/workbench.js?v=7.3.0"></script>
 </head>
 <body>
 <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -4720,7 +4872,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     <div class="brand-mark" aria-hidden="true">CM</div>
     <div>
       <h1>Comment Master</h1>
-      <p>Private document workbench <span class="version">v7.2.2</span></p>
+      <p>Private document workbench <span class="version">v7.3.0</span></p>
     </div>
   </div>
   <div class="header-actions">
@@ -5064,7 +5216,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
         <button class="btn btn-light" data-action="prevPage" type="button">Previous</button>
         <span id="page-status">Page 1 of 1</span>
         <button class="btn btn-light" data-action="nextPage" type="button">Next</button>
-        <label for="page-size">Rows per page</label><select id="page-size"><option>100</option><option selected>250</option><option>500</option><option>1000</option></select>
+        <label for="page-size">Rows per page</label><select id="page-size"><option selected>25</option><option>100</option><option>250</option><option>500</option><option>1000</option></select>
       </div>
     </div>
 
@@ -5276,7 +5428,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
 
 <dialog id="progress-dialog" class="workbench-dialog privacy-dialog" aria-labelledby="progress-title"><div class="dialog-heading"><div><h2 id="progress-title">Working locally</h2><p id="progress-subtitle">Preparing the operation.</p></div></div><div class="dialog-body"><div class="job-progress"><progress id="job-progress" max="100" value="0"></progress><div class="job-progress-row"><span id="job-progress-label">Starting…</span><span id="job-progress-value">0%</span></div></div><div class="button-row" style="justify-content:flex-end;margin-top:16px"><button id="job-cancel" class="btn btn-danger" data-wb-action="cancel-job" type="button">Cancel</button></div></div></dialog>
 
-<footer class="app-footer">Comment Master v7.2.2 · Document processing stays in your browser · <button class="btn btn-light" data-wb-action="privacy" type="button">Privacy</button> · <a href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">Third-party notices</a></footer>
+<footer class="app-footer">Comment Master v7.3.0 · Document processing stays in your browser · <button class="btn btn-light" data-wb-action="privacy" type="button">Privacy</button> · <a href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">Third-party notices</a></footer>
 
 </body>
 </html>

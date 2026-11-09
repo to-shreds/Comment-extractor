@@ -1,0 +1,17 @@
+import JSZip from 'jszip';
+export const WORD_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+const R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+const PR = 'http://schemas.openxmlformats.org/package/2006/relationships';
+export async function createReviewDocx({ name = 'Linear review.docx', specialSection = false, signed = false } = {}) {
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml', `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/comments.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml"/><Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>`);
+  zip.file('_rels/.rels', `<Relationships xmlns="${PR}"><Relationship Id="rId1" Type="${R}/officeDocument" Target="word/document.xml"/><Relationship Id="core" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>`);
+  zip.file('word/_rels/document.xml.rels', `<Relationships xmlns="${PR}"><Relationship Id="comments" Type="${R}/comments" Target="comments.xml"/><Relationship Id="header" Type="${R}/header" Target="header1.xml"/></Relationships>`);
+  zip.file('word/header1.xml', `<w:hdr xmlns:w="${W}"><w:p><w:r><w:t>SOURCE_HEADER_SENTINEL</w:t></w:r></w:p></w:hdr>`);
+  zip.file('word/document.xml', `<w:document xmlns:w="${W}" xmlns:r="${R}"><w:body><w:p><w:commentRangeStart w:id="0"/><w:r><w:t>Original commented language.</w:t></w:r><w:commentRangeEnd w:id="0"/><w:r><w:commentReference w:id="0"/></w:r></w:p><w:p><w:r><w:t xml:space="preserve">Payment in </w:t></w:r><w:del w:id="1" w:author="Alex" w:date="2026-10-01T12:00:00Z"><w:r><w:delText>thirty</w:delText></w:r></w:del><w:ins w:id="2" w:author="Jordan" w:date="2026-10-01T13:00:00Z"><w:r><w:t>forty-five</w:t></w:r></w:ins><w:r><w:t xml:space="preserve"> days.</w:t></w:r></w:p><w:sectPr><w:headerReference w:type="default" r:id="header"/>${specialSection ? '<w:type w:val="continuous"/>' : ''}<w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr></w:body></w:document>`);
+  zip.file('word/comments.xml', `<w:comments xmlns:w="${W}"><w:comment w:id="0" w:author="Alex" w:date="2026-10-01T11:00:00Z"><w:p><w:r><w:t>Please confirm this provision.</w:t></w:r></w:p></w:comment></w:comments>`);
+  zip.file('docProps/core.xml', '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:creator>Creator</dc:creator><cp:lastModifiedBy>Editor</cp:lastModifiedBy></cp:coreProperties>');
+  if (signed) zip.file('_xmlsignatures/sig1.xml', '<Signature/>');
+  return { name, mimeType: WORD_MIME, buffer: await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }) };
+}

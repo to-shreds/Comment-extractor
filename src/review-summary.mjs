@@ -6,7 +6,7 @@ export const SUMMARY_COLUMNS = Object.freeze([
   { key: 'action', label: 'Action', weight: 13 },
   { key: 'redline', label: 'Redlined language', weight: 32 },
   { key: 'comment', label: 'Comment text', weight: 36 },
-  { key: 'page', label: 'Page', weight: 7 },
+  { key: 'page', label: 'Page', weight: 10 },
   { key: 'part', label: 'Document part', weight: 14 }
 ]);
 const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
@@ -34,7 +34,7 @@ export function summaryRows(items, options = {}) {
   if (!rows.length) throw new Error('There are no matching comments or redlines to include.');
   if (rows.length > 100000) throw new Error('This summary exceeds the 100,000-row safety limit.');
   return { options: opts, rows: rows.map((item) => ({
-    name: item.author || '', date: item.date || '', original: item.original ?? item.on ?? '',
+    name: item.author || '', date: String(item.date || '').replace(/^(\d{4}-\d{2}-\d{2})T/, '$1\n').replace(/Z$/, ' UTC'), original: item.original ?? item.on ?? '',
     action: item.type === 'com' ? (item.replyToId ? `Comment (reply to ${item.replyToId})` : 'Comment') :
       ({ ins: 'Addition', del: 'Deletion', moveFrom: 'Moved from', moveTo: 'Moved to', format: 'Formatting change' }[item.type] || item.label || 'Tracked change'),
     redline: item.type === 'com' ? '' : item.text || '', comment: item.type === 'com' ? item.text || '' : '',

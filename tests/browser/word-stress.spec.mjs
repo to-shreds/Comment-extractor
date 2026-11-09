@@ -173,7 +173,8 @@ test('Clean Copy for the staged current File includes in-memory reviewer edits',
   await page.locator('[data-action="homeRename"]').click();
   await page.locator('#nav-toggle').click();
   await page.locator('#global-navigation').getByRole('button', { name: 'Home', exact: true }).click();
-  await page.locator('[data-task="clean"]').click();
+  await page.locator('.linear-other-tools').filter({ hasText: 'Other document tools' }).locator('summary').click();
+  await page.locator('[data-linear-tool="clean-word"]').click();
   await expect(page.locator('#clean-word-source')).toContainText('Staged original.docx');
   await page.locator('#clean-remove-comments').uncheck();
   await page.locator('#clean-review-metadata').uncheck();

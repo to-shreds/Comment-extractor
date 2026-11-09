@@ -48,6 +48,9 @@ await mkdir(path.join(dist, 'assets'), { recursive: true });
 
 await copy('index.html', 'index.html');
 await copy('src/workbench.css', 'assets/workbench.css');
+await copy('src/linear-workspace.css', 'assets/linear-workspace.css');
+await copy('src/linear-workspace.mjs', 'assets/linear-workspace.mjs');
+await copy('src/review-summary.mjs', 'assets/review-summary.mjs');
 await copy('src/workbench.js', 'assets/workbench.js');
 await copy('src/workbench-core.mjs', 'assets/workbench-core.mjs');
 await copy('src/pdf-engine.mjs', 'assets/pdf-engine.mjs');
@@ -115,6 +118,7 @@ for (const [directory, extensions] of [
 
 const coreAssets = [
   './index.html', './manifest.webmanifest', './asset-manifest.json', './assets/workbench.css', './assets/workbench.js',
+  './assets/linear-workspace.css', './assets/linear-workspace.mjs', './assets/review-summary.mjs',
   './assets/workbench-core.mjs', './assets/pdf-engine.mjs', './vendor/pdfjs/pdf.mjs',
   './vendor/pdfjs/pdf.worker.mjs', './vendor/pdf-lib/pdf-lib.esm.min.js',
   './vendor/marked/marked.esm.js', './vendor/dompurify/purify.es.mjs',

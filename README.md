@@ -1,6 +1,6 @@
 # Comment Master
 
-Comment Master v7.2.2 is a private, browser-local document workbench with a beginner-friendly Word home page, PDF work, document comparison, conversion, binders, cleanup, inspection, and batch processing.
+Comment Master v7.3.0 (unpublished development build) is a private, browser-local document workbench with a beginner-friendly Word home page, PDF work, document comparison, conversion, binders, cleanup, inspection, and batch processing.
 
 The application is a static site. It does not require an installer, a local server, a browser extension, a cloud document-processing service, or a third-party account. Documents are processed in the browser and are not uploaded by Comment Master.
 
@@ -8,14 +8,19 @@ Since v7.2.1, the main Word upload uses the browser's standard file picker. Vers
 
 ## Interface and workflow
 
-The v7.2 Home page is designed for someone who is not familiar with Word editing tools:
+Home is a single linear document workspace. Load a Word document, open the sections you need, make any number of changes, and download at the bottom. The left sidebar links to every main section and shows whether the current document is loaded, a section has actually been applied, an inspection has been viewed, and an export is current or predates later edits. Opening a section does not falsely mark it complete. Undo restores the relevant section status.
 
-1. Choose or drop one Word `.docx` document.
-2. Choose **Export comments**, **Change reviewer names**, **Review comments and tracked changes**, **Make a clean copy**, or **Compare or combine documents**.
+The collapsible sections are Load document, Change names, Edit comments and redlines, Update dates and times, Remove metadata, Find and replace, Create redlines, Inspect document, and Compare and combine. The original review editor remains underneath a card-based presentation with filters, selection, names, dates, comment editing, and tracked-text editing. PDF and other document tools, including clean copy, conversion, batch processing, and spreadsheet/clipboard exports, remain accessible from the sidebar.
 
-**Export comments** downloads a Word report of the comments currently in the working copy, including earlier edits. **Change reviewer names** asks for the old and new names, then applies that change to comments and tracked changes *without forcing a download*. Users can change more names, export comments, open the detailed editor, prepare a clean copy, or compare using the current document before choosing **Download edited Word document**. The original source file is never overwritten. Edits remain in memory in the current browser tab until downloaded and are not stored on a server.
+The final actions are **Download updated document** and **Download comment/redline summary**. Summary options default to comments and redlines, with all eight columns selected: Name, Date and time, Original text, Action, Redlined language, Comment text, Page, and Document part. **Include original document after the summary** is off by default.
 
-PDFs, multi-file queues, conversion, batch processing, and specialist tools remain under **Working with PDFs, multiple files, or something else?**, as well as the More navigation. Existing processing capabilities are preserved.
+The optional appendix uses the exact current working package from which the summary was generated. It inserts directly formatted summary pages before the original body without reconstructing its contents. Every other package part remains byte-for-byte unchanged, and removing the inserted summary XML restores the exact source main-document XML. Existing document content, images, relationships, comments, revisions, and section properties are retained. Adding pages can change overall pagination and field results. Digitally signed packages or special initial continuous/odd/even/column section breaks are refused rather than silently altering their semantics; download the summary separately in those cases.
+
+No edit forces a download. Original files are never overwritten. Document state remains in memory in the current tab, not in remote storage.
+
+## v7.3.0 publication state
+
+This development build has been built and locally tested but has **not** been committed, merged, or deployed. The current public site remains v7.2.2. See `HANDOFF.md` and `TEST_REPORT.md` for the exact verification boundary and next release steps. Do not describe the full production test suite as passed until it is actually run in the configured environment.
 
 ## Current capabilities
 
