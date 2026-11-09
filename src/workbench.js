@@ -756,6 +756,124 @@ function renderHomeSelection() {
   }).join('');
 }
 
+
+function showHomeTaskFeedback(message, error = false) {
+  const field = $('home-task-feedback');
+  field.hidden = !message;
+  field.textContent = message || '';
+  field.classList.toggle('error', Boolean(error));
+}
+
+function showHomeWordChoices() {
+  $('home-word-actions').hidden = false;
+  $('home-rename-panel').hidden = true;
+  $('home-selection-title').textContent = 'What would you like to do?';
+  $('home-word-actions').querySelector('button')?.focus({ preventScroll: true });
+}
+
+async function ensureHomeWordLoaded() {
+  const file = app.homeFiles.length === 1 && detectFormat(app.homeFiles[0]) === 'docx' ? app.homeFiles[0] : null;
+  if (!file) throw new Error('Choose a Word document first.');
+  const word = window.CommentMasterWord;
+  if (!word) throw new Error('The Word document tools are unavailable. Reload Comment Master.');
+  if (!word.isCurrentFile(file)) await word.openFile(file);
+  if (!word.isCurrentFile(file)) throw new Error('The selected Word document was not opened. Your existing work was not changed.');
+  return word;
+}
+
+function renderHomeRenameOptions(snapshot) {
+  const authors = new Map();
+  (snapshot?.items || []).forEach((item) => {
+    const key = item.authorPresent === false ? '__missing__' : !item.author ? '__blank__' : `value:${item.author}`;
+    const label = item.authorPresent === false ? '(No reviewer name)' : item.author || '(Blank reviewer name)';
+    if (!authors.has(key)) authors.set(key, { label, count: 0 });
+    authors.get(key).count += 1;
+  });
+  const select = $('home-rename-from');
+  select.replaceChildren(...Array.from(authors.entries()).sort((a, b) => a[1].label.localeCompare(b[1].label)).map(([key, entry]) => {
+    const option = document.createElement('option');
+    option.value = key;
+    option.textContent = entry.label;
+    return option;
+  }));
+  const update = () => {
+    const chosen = authors.get(select.value);
+    $('home-rename-count').textContent = chosen ?
+      `This name appears on ${chosen.count} comment${chosen.count === 1 ? '' : 's'} or tracked change${chosen.count === 1 ? '' : 's'}.`
+      : 'No reviewer names were found in this document.';
+  };
+  select.onchange = update;
+  $('home-rename-download').disabled = authors.size === 0;
+  $('home-rename-to').value = '';
+  update();
+  $('home-word-actions').hidden = true;
+  $('home-rename-panel').hidden = false;
+  $('home-selection-title').textContent = 'Change reviewer names';
+  if (authors.size) select.focus({ preventScroll: true });
+}
+
+async function runHomeWordTask(task) {
+  if (app.homeWordTaskBusy) return;
+  showHomeTaskFeedback('');
+  if (task === 'compare') {
+    const original = app.homeFiles[0];
+    const word = window.CommentMasterWord;
+    if (word?.openCompareWithFiles) word.openCompareWithFiles(original, null);
+    else openCompare('documents');
+    return;
+  }
+  if (task === 'clean') return chooseTask('clean-word');
+  if (task === 'review') return openWordFromSelectionOrPicker();
+  if (!['rename', 'export'].includes(task)) throw new Error('Choose a document action.');
+  app.homeWordTaskBusy = true;
+  try {
+    const word = await ensureHomeWordLoaded();
+    switchRoute('home', false);
+    if (task === 'export') {
+      if (!(word.snapshot()?.items || []).some((item) => item.type === 'com')) {
+        throw new Error('This Word document has no comments to export.');
+      }
+      await word.exportComments();
+      showHomeTaskFeedback('Your comments report has been downloaded. Your original document was not changed.');
+    } else renderHomeRenameOptions(word.snapshot());
+  } catch (error) {
+    showHomeTaskFeedback(String(error.message || error), true);
+    throw error;
+  } finally {
+    app.homeWordTaskBusy = false;
+  }
+}
+
+async function downloadRenamedWord() {
+  if (app.homeWordTaskBusy) return;
+  const from = $('home-rename-from').value;
+  const to = $('home-rename-to').value.trim();
+  if (!from || !to) {
+    showHomeTaskFeedback('Select a current name and enter the new name.', true);
+    return;
+  }
+  app.homeWordTaskBusy = true;
+  try {
+    const word = await ensureHomeWordLoaded();
+    if (!app.pendingHomeRename || app.pendingHomeRename.file !== app.homeFiles[0] ||
+        app.pendingHomeRename.from !== from || app.pendingHomeRename.to !== to) {
+      const changed = word.renameReviewer(from, to);
+      if (!changed) throw new Error('That reviewer already has this name. No changes were needed.');
+      app.pendingHomeRename = { file: app.homeFiles[0], from, to, changed };
+    }
+    await word.saveCurrent();
+    const count = app.pendingHomeRename.changed;
+    app.pendingHomeRename = null;
+    showHomeTaskFeedback(`Downloaded an updated Word file with ${count} reviewer name change${count === 1 ? '' : 's'}. Your original file was not overwritten.`);
+    renderHomeRenameOptions(word.snapshot());
+  } catch (error) {
+    showHomeTaskFeedback(String(error.message || error), true);
+    throw error;
+  } finally {
+    app.homeWordTaskBusy = false;
+  }
+}
+
 async function activateSuggestion(suggestion) {
   if (suggestion === 'review-word') return openWordFromSelectionOrPicker();
   if (suggestion === 'open-pdf') return openPdfFromSelectionOrPicker();
