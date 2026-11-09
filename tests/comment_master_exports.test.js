@@ -17,7 +17,7 @@ function scriptContaining(text) {
 
 function testSyntaxAndUiContract() {
   scripts.forEach((script, index) => assert.doesNotThrow(() => new Function(script), `Script ${index + 1} has invalid JavaScript`));
-  assert.match(html, /<title>Comment Master v7\.3\.0<\/title>/);
+  assert.match(html, /<title>Comment Master v7\.3\.1<\/title>/);
   assert.match(html, /class="tab-btn tab-export" data-tab="export"/);
   assert.match(html, /data-action="homeStripMetadata"/);
   assert.match(html, /data-action="homeExportComments"/);
