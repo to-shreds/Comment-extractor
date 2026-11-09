@@ -345,7 +345,7 @@ body[data-route="home"] .header-actions > [data-wb-action="open-files"] { displa
 .home-drop-mark { font-size: 28px; font-weight: 850; letter-spacing: normal; }
 .home-upload-button { min-height: 48px; padding: 12px 20px; font-size: 15px; }
 .home-selection { padding: 24px; border-color: #c7d4ed; background: #f9fbff; }
-.home-selection-head h3 { margin: 0; font-size: 24px; color: #193266; }
+.home-selection-head h3 { margin: 0; font-size: 24px; color: #193266; scroll-margin-top: 96px; }
 .home-selection-head > div > p:last-child { margin-top: 6px; font-size: 13px; }
 .home-selection .selected-files { margin: 17px 0 20px; }
 .home-word-actions { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
