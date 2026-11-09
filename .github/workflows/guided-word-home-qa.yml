@@ -6,10 +6,6 @@ on:
       - fix/7.2.2-word-session
   workflow_dispatch:
 
-concurrency:
-  group: comment-master-release-${{ github.ref }}
-  cancel-in-progress: true
-
 permissions:
   contents: write
 
