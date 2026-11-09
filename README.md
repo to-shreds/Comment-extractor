@@ -1,21 +1,19 @@
 # Comment Master
 
-Comment Master v7.1.1 is a private, browser-local document workbench for Word review, PDF work, document comparison, conversion, binders, cleanup, inspection, and batch processing.
+Comment Master v7.2.0 is a private, browser-local document workbench with a beginner-friendly Word home page, PDF work, document comparison, conversion, binders, cleanup, inspection, and batch processing.
 
 The application is a static site. It does not require an installer, a local server, a browser extension, a cloud document-processing service, or a third-party account. Documents are processed in the browser and are not uploaded by Comment Master.
 
 ## Interface and workflow
 
-The v7.1 interface is file-first:
+The v7.2 Home page is designed for someone who is not familiar with Word editing tools:
 
-- **Open or drop files** is the primary entry point. A single DOCX or PDF opens directly in the correct workspace.
-- **Multiple files** stay on Home long enough to offer contextual next steps such as comparison, commentary consolidation, binder creation, conversion, and batch work.
-- **Compare / Combine** remains directly available from Home and the compact More menu.
-- **More Tools** contains Binder, Convert, Batch, Inspect, and Clean Word workflows.
-- **Word** keeps Overview, Review, Quick Edits, and Export visible while moving specialist views behind More.
-- **PDF** keeps View & Search, Pages, OCR, Redact, and Export visible while moving Clean & Inspect and Forms behind More.
+1. Choose or drop one Word `.docx` document.
+2. Choose **Export comments**, **Change reviewer names**, **Review comments and tracked changes**, **Make a clean copy**, or **Compare or combine documents**.
 
-The capability set is intentionally preserved. The simplification changes navigation and progressive disclosure rather than removing processing features.
+**Export comments** downloads a new Word report directly; no editing workspace or export settings need to be opened. **Change reviewer names** asks for the existing name and replacement name, then downloads an edited `.docx` with the selected attribution changed in comments and tracked changes. The original source file is not overwritten. The detailed Word editor and advanced functionality remain available for users who need them.
+
+PDFs, multi-file queues, conversion, batch processing, and specialist tools remain under **Working with PDFs, multiple files, or something else?**, as well as the More navigation. Existing processing capabilities are preserved.
 
 ## Current capabilities
 

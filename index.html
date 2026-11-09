@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#243f77">
   <meta name="color-scheme" content="light">
   <link rel="manifest" href="manifest.webmanifest">
-  <title>Comment Master v7.1.1</title>
+  <title>Comment Master v7.2.0</title>
   <style>
 :root {
   color-scheme: light;
@@ -656,7 +656,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
 (function () {
   'use strict';
 
-  const VERSION = '7.1.1';
+  const VERSION = '7.2.0';
   const WML_TRANSITIONAL = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
   const WML_STRICT = 'http://purl.oclc.org/ooxml/wordprocessingml/main';
   const WML_NAMESPACES = new Set([WML_TRANSITIONAL, WML_STRICT]);
@@ -1250,7 +1250,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
       setStatus(`Loaded ${candidate.fileName}. Found ${candidate.items.length} review item${plural(candidate.items.length)}.`, true);
       requestAnimationFrame(() => {
         const overviewTab = ui.tabs.querySelector('[data-tab="overview"]');
-        if (overviewTab) overviewTab.focus();
+        if (overviewTab && document.body.dataset.route === 'word') overviewTab.focus();
       });
     } catch (error) {
       if (token === state.loadToken) showError(error);
@@ -4626,7 +4626,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
   function testSnapshot() {
     return state.doc ? {
       fileName: state.doc.fileName, mainPart: state.doc.mainPart, strict: state.doc.strict,
-      itemCount: state.doc.items.length, items: state.doc.items.map((item) => ({ uid: item.uid, type: item.type, author: item.author, date: item.date, text: item.text, on: item.on, part: item.part, xmlPath: item.xmlPath, id: item.id, replyToUid: item.replyToUid || '', replyToId: item.replyToId || '' })),
+      itemCount: state.doc.items.length, items: state.doc.items.map((item) => ({ uid: item.uid, type: item.type, author: item.author, authorPresent: item.authorPresent, date: item.date, text: item.text, on: item.on, part: item.part, xmlPath: item.xmlPath, id: item.id, replyToUid: item.replyToUid || '', replyToId: item.replyToId || '' })),
       relationships: state.doc.relationships.map((rel) => ({ status: rel.status, source: rel.source, target: rel.target, resolved: rel.resolved, used: rel.used })),
       externalLinks: state.doc.externalLinks.map((link) => ({ url: link.url, sources: link.sources.slice(), occurrences: link.occurrences, status: link.status, detail: link.detail })),
       stats: Object.assign({}, state.doc.stats),
@@ -4672,6 +4672,21 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     clearComparisonState: () => clearComparisonState(),
     hasComparisonState: () => hasComparisonState(),
     selectTab: (tab) => switchTab(tab),
+    exportComments: () => exportCommentsWord(),
+    renameReviewer: (fromKey, replacement) => {
+      requireFile();
+      const name = String(replacement || '').trim();
+      if (!name) throw new Error('Enter a new reviewer name.');
+      const key = String(fromKey || '');
+      if (!key) throw new Error('Choose an existing reviewer name.');
+      const matching = state.doc.items.filter((item) => authorFilterValue(item.author, item.authorPresent) === key);
+      if (!matching.length) throw new Error('No comments or tracked changes match that reviewer name.');
+      return applyBatch(matching, 'Reviewer name change', (item) => {
+        if (item.authorPresent && item.author === name) return false;
+        patchItemField(item, 'author', name);
+        return true;
+      });
+    },
     saveCurrent: () => saveDocx()
   });
 
@@ -4694,7 +4709,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     <div class="brand-mark" aria-hidden="true">CM</div>
     <div>
       <h1>Comment Master</h1>
-      <p>Private document workbench <span class="version">v7.1.1</span></p>
+      <p>Private document workbench <span class="version">v7.2.0</span></p>
     </div>
   </div>
   <div class="header-actions">
@@ -4806,31 +4821,72 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
 
 <main id="main-content" class="app-shell">
   <input type="file" id="workbench-file-input" accept=".docx,.pdf,.xlsx,.csv,.pptx,.odt,.rtf,.txt,.md,.markdown,.html,.htm,.png,.jpg,.jpeg,.webp,.gif" multiple hidden>
+  <input type="file" id="home-word-file-input" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
+
 
   <section id="home" class="home-view route-view" data-route-view="home">
     <div class="home-intro">
-      <div><h2>Open a document. We’ll take it from there.</h2><p>Drop or choose files. A single Word document or PDF opens directly in the right workspace. With several files, Comment Master suggests the useful next steps.</p></div>
+      <div><p class="home-step-label">STEP 1 OF 2</p>
+        <h2>What do you want to do with your Word document?</h2>
+        <p>Choose a Word file first. Then choose what you want to do. No document editing experience needed.</p>
+      </div>
       <button class="privacy-pill local-callout" data-wb-action="privacy" type="button">Files stay on this device</button>
     </div>
-
     <div id="home-drop-zone" class="home-drop" aria-describedby="home-drop-help">
-      <div class="home-drop-copy">
-        <div class="home-drop-mark" aria-hidden="true">FILES</div>
-        <div><h3>Drop files here</h3><p id="home-drop-help">Choose one file to start, or several to compare, combine, or process together.</p></div>
+      <div class="home-drop-copy"><div class="home-drop-mark" aria-hidden="true">W</div>
+        <div><h3>Choose your Word document</h3><p id="home-drop-help">Select a .docx file, or drag it here. The original file won't be changed.</p></div>
       </div>
-      <div class="home-drop-actions"><button class="btn btn-primary" data-wb-action="open-files" type="button">Choose files</button></div>
+      <div class="home-drop-actions"><button class="btn btn-primary home-upload-button" data-wb-action="choose-home-word" type="button">Choose Word document</button></div>
     </div>
-
     <section id="home-selection" class="home-selection" hidden aria-labelledby="home-selection-title">
-      <div class="home-selection-head"><div><h3 id="home-selection-title">Files ready</h3><p id="home-selection-status" role="status" aria-live="polite"></p></div><button class="btn btn-light" data-wb-action="clear-selection" type="button">Clear</button></div>
+      <div class="home-selection-head">
+        <div><p class="home-step-label">STEP 2 OF 2</p><h3 id="home-selection-title" tabindex="-1">What would you like to do?</h3><p id="home-selection-status" role="status" aria-live="polite"></p></div>
+        <button class="btn btn-light" data-wb-action="clear-selection" type="button">Clear selection</button>
+      </div>
       <div id="selected-files" class="selected-files"></div>
+      <div id="home-word-actions" class="home-word-actions" aria-label="Choose a Word document action" hidden>
+        <button class="home-task-card" data-wb-action="home-word-task" data-task="export" type="button">
+          <strong>Export comments</strong><span>Download a Word report of all comments and replies. The original document stays unchanged.</span>
+        </button>
+        <button class="home-task-card" data-wb-action="home-word-task" data-task="rename" type="button">
+          <strong>Change reviewer names</strong><span>Replace a name on comments and tracked changes, then download the edited Word file.</span>
+        </button>
+        <button class="home-task-card" data-wb-action="home-word-task" data-task="review" type="button">
+          <strong>Review comments and tracked changes</strong><span>Open the detailed editor to view or change individual comments and redlines.</span>
+        </button>
+        <button class="home-task-card" data-wb-action="home-word-task" data-task="clean" type="button">
+          <strong>Make a clean copy</strong><span>Accept tracked changes, remove comments, or remove document metadata.</span>
+        </button>
+        <button class="home-task-card home-task-secondary" data-wb-action="home-word-task" data-task="compare" type="button">
+          <strong>Compare or combine documents</strong><span>Compare two versions or bring several reviewers' changes together.</span>
+        </button>
+      </div>
+      <section id="home-rename-panel" class="home-rename-panel" aria-labelledby="home-rename-title" hidden>
+        <h3 id="home-rename-title">Change a reviewer name</h3>
+        <p>Choose the name currently shown in comments or tracked changes. The new name will replace it everywhere that reviewer appears.</p>
+        <div class="home-rename-fields">
+          <div class="form-row"><label for="home-rename-from">Current reviewer name</label><select id="home-rename-from"></select></div>
+          <div class="form-row"><label for="home-rename-to">New reviewer name</label><input id="home-rename-to" type="text" maxlength="255" autocomplete="off" placeholder="Type the new name"></div>
+        </div>
+        <p id="home-rename-count" class="home-rename-count" role="status" aria-live="polite"></p>
+        <div class="home-rename-buttons">
+          <button class="btn btn-primary" id="home-rename-download" data-wb-action="home-rename-download" type="button">Download Word document with new name</button>
+          <button class="btn btn-light" data-wb-action="home-rename-back" type="button">Back to choices</button>
+        </div>
+        <p class="home-rename-note">You'll receive a new .docx file. Your original won't be overwritten.</p>
+      </section>
+      <p id="home-task-feedback" class="home-task-feedback" role="status" aria-live="polite" hidden></p>
       <div id="suggestion-actions" class="suggestion-actions"></div>
     </section>
-
-    <div class="home-shortcuts" aria-label="Other ways to start">
-      <div><strong>Need something else?</strong><span>Compare documents or find another tool.</span></div>
-      <div class="button-row"><button class="btn btn-light" data-wb-action="open-compare" type="button">Compare / Combine</button><button class="btn btn-light" data-route-target="tools" type="button">More Tools</button></div>
-    </div>
+    <details class="home-extra-tools">
+      <summary>Working with PDFs, multiple files, or something else?</summary>
+      <p>These tools are still available when you need them.</p>
+      <div class="button-row">
+        <button class="btn btn-light" data-wb-action="open-files" type="button">Choose multiple or other files</button>
+        <button class="btn btn-light" data-wb-action="open-compare" type="button">Compare or combine</button>
+        <button class="btn btn-light" data-route-target="tools" type="button">All other tools</button>
+      </div>
+    </details>
   </section>
 
   <section id="landing" class="landing-card route-view" data-route-view="word" hidden>
@@ -5205,7 +5261,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
 
 <dialog id="progress-dialog" class="workbench-dialog privacy-dialog" aria-labelledby="progress-title"><div class="dialog-heading"><div><h2 id="progress-title">Working locally</h2><p id="progress-subtitle">Preparing the operation.</p></div></div><div class="dialog-body"><div class="job-progress"><progress id="job-progress" max="100" value="0"></progress><div class="job-progress-row"><span id="job-progress-label">Starting…</span><span id="job-progress-value">0%</span></div></div><div class="button-row" style="justify-content:flex-end;margin-top:16px"><button id="job-cancel" class="btn btn-danger" data-wb-action="cancel-job" type="button">Cancel</button></div></div></dialog>
 
-<footer class="app-footer">Comment Master v7.1.1 · Document processing stays in your browser · <button class="btn btn-light" data-wb-action="privacy" type="button">Privacy</button> · <a href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">Third-party notices</a></footer>
+<footer class="app-footer">Comment Master v7.2.0 · Document processing stays in your browser · <button class="btn btn-light" data-wb-action="privacy" type="button">Privacy</button> · <a href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">Third-party notices</a></footer>
 
 </body>
 </html>

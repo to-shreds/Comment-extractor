@@ -40,33 +40,36 @@ function textUploads(prefix, count) {
   return Array.from({ length: count }, (_, index) => ({ name: `${prefix}-${index}.txt`, mimeType: 'text/plain', buffer: Buffer.from('Synthetic queue fixture.') }));
 }
 
-test('cancelling the fallback file picker releases its pending state', async ({ page }) => {
+test('cancelling the fallback Word picker releases its pending state', async ({ page }) => {
   await openShell(page);
-  await page.evaluate(() => { document.getElementById('workbench-file-input').click = () => {}; });
-  await page.locator('#home-drop-zone').getByRole('button', { name: 'Choose files', exact: true }).click();
-  await expect(page.locator('#workbench-file-input')).toHaveAttribute('data-pending-picker', 'true');
-  await page.locator('#workbench-file-input').dispatchEvent('cancel');
-  await expect(page.locator('#workbench-file-input')).not.toHaveAttribute('data-pending-picker', 'true');
+  await page.evaluate(() => { document.getElementById('home-word-file-input').click = () => {}; });
+  await page.locator('#home-drop-zone').getByRole('button', { name: 'Choose Word document', exact: true }).click();
+  await expect(page.locator('#home-word-file-input')).toHaveAttribute('data-pending-picker', 'true');
+  await page.locator('#home-word-file-input').dispatchEvent('cancel');
+  await expect(page.locator('#home-word-file-input')).not.toHaveAttribute('data-pending-picker', 'true');
   await expect(page.locator('#home-selection')).toBeHidden();
 });
 
-test('repeated cancelled picker attempts open a selected document only once', async ({ page }) => {
+test('repeated cancelled picker attempts stage one file without unexpectedly opening the editor', async ({ page }) => {
   await openShell(page);
   await page.evaluate(() => {
-    document.getElementById('workbench-file-input').click = () => {};
+    document.getElementById('home-word-file-input').click = () => {};
     window.__reliabilityOpenCount = 0;
     window.CommentMasterWord = {
       openFile: async () => { window.__reliabilityOpenCount += 1; },
       hasDocument: () => false
     };
   });
-  const choose = page.locator('#home-drop-zone').getByRole('button', { name: 'Choose files', exact: true });
+  const choose = page.locator('#home-drop-zone').getByRole('button', { name: 'Choose Word document', exact: true });
   for (let attempt = 0; attempt < 3; attempt += 1) {
     await choose.click();
-    await page.locator('#workbench-file-input').dispatchEvent('cancel');
+    await page.locator('#home-word-file-input').dispatchEvent('cancel');
   }
   await choose.click();
-  await page.locator('#workbench-file-input').setInputFiles({ name: 'Picker.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: Buffer.from('Picker control fixture; the engine is replaced in this test.') });
+  await page.locator('#home-word-file-input').setInputFiles({ name: 'Picker.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: Buffer.from('Picker control fixture; the engine is replaced in this test.') });
+  await expect(page.locator('#home-word-actions')).toBeVisible();
+  expect(await page.evaluate(() => window.__reliabilityOpenCount)).toBe(0);
+  await page.locator('[data-task="review"]').click();
   await expect.poll(() => page.evaluate(() => window.__reliabilityOpenCount)).toBe(1);
 });
 
