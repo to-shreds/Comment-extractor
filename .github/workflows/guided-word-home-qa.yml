@@ -1,9 +1,9 @@
-name: Comment Master v7.2.2 QA
+name: Comment Master v7.3.1 Editorial QA
 
 on:
   push:
     branches:
-      - fix/7.2.2-word-session
+      - design/editorial-workbench-v7.3.1
   workflow_dispatch:
 
 permissions:
@@ -25,6 +25,8 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --fund=false
       - name: Install Chromium for browser tests
         run: npx playwright install --with-deps chromium
+      - name: Fetch and verify pinned local editorial fonts
+        run: npm run fonts:install
       - name: Run full QA suite
         run: npm run qa
       - name: Synchronize GitHub Pages runtime
@@ -33,8 +35,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- assets asset-manifest.json service-worker.js
+          git add -- src/fonts assets asset-manifest.json service-worker.js
           if ! git diff --cached --quiet; then
-            git commit -m "Sync verified guided Word home runtime [skip ci]"
+            git commit -m "Sync verified editorial workbench runtime [skip ci]"
             git push origin HEAD:"${GITHUB_REF_NAME}"
           fi
