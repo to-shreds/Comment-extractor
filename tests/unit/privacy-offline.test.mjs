@@ -31,6 +31,26 @@ test('document workflows contain no external network probes or persistence archi
   assert.match(html, /External website addresses found in the document are listed locally and are never contacted/);
 });
 
+
+test('a waiting older service worker cannot intercept the new Word UI assets', async () => {
+  const [html, script, worker] = await Promise.all([
+    readFile(path.join(root, 'index.html'), 'utf8'),
+    readFile(path.join(root, 'src/workbench.js'), 'utf8'),
+    readFile(path.join(root, 'src/service-worker.js'), 'utf8')
+  ]);
+  const version = '7.2.1';
+  for (const [name, tag] of [
+    ['workbench.css', 'href'],
+    ['workbench.js', 'src']
+  ]) {
+    assert.ok(html.includes(`${tag}="assets/${name}?v=${version}"`), `${name} must bypass an older cache-first worker`);
+  }
+  assert.ok(script.includes(`from './workbench-core.mjs?v=${version}'`), 'the imported app core must also bypass the older worker');
+  assert.match(script, /useNative: false/, 'the primary upload must use a standard file input');
+  assert.match(worker, /url\.search === `\?v=\$\{VERSION\}`/, 'the current worker must recognize its own versioned cache URLs');
+  assert.match(worker, /cache\.match\(cacheKey\)/, 'versioned cache keys must resolve to the precached files');
+});
+
 test('service worker caches only exact application assets', async () => {
   const worker = await readFile(path.join(root, 'src/service-worker.js'), 'utf8');
   assert.match(worker, /CORE_URLS\.has\(request\.url\)/);
