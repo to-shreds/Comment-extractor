@@ -1,0 +1,34 @@
+name: Apply prepared Comment Master v7.3.0 release patch
+on:
+  push:
+    branches:
+      - ux/linear-workspace-v7.3.0
+permissions:
+  contents: write
+jobs:
+  apply-prepared-release:
+    if: github.event.head_commit.message == 'Stage verified v7.3.0 patch for automated apply and QA' || github.event.head_commit.message == 'Install one-time prepared release applicator'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact staged patch revision
+        uses: actions/checkout@v4
+      - name: Confirm expected baseline and validate patch
+        run: |
+          test "$(git log -2 --format=%H | tail -1)" = "e33d85bc8c8f778347c760a84ffecd4990d6b31e" || {
+            echo "Unexpected baseline. Refusing to overwrite current work."
+            exit 1
+          }
+          test "$(git hash-object .release/comment-master-v7.3.0.patch)" = "8124fcda425b4fb52335f290d297f524b754db4f"
+          git apply --check .release/comment-master-v7.3.0.patch
+      - name: Apply exact prepared patch
+        run: |
+          git apply .release/comment-master-v7.3.0.patch
+          rm .release/comment-master-v7.3.0.patch
+          rmdir .release
+          rm .github/workflows/apply-linear-release-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Apply Comment Master v7.3.0 linear workspace from verified patch"
+          git push origin HEAD:"${GITHUB_REF_NAME}"
