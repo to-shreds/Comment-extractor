@@ -194,7 +194,7 @@ test.describe('home and navigation', () => {
   test('desktop home presents one obvious file-first workflow', async ({ page }) => {
     await openShell(page);
 
-    await expect(page.getByRole('heading', { name: 'Your document, step by step.' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Work on your document.' })).toBeVisible();
     await expect(page.locator('#linear-file-drop')).toContainText('Choose a Word document');
     await expect(page.getByRole('button', { name: 'Choose Word document' })).toBeVisible();
     await expect(page.locator('.linear-local')).toContainText('Processed on this device');
@@ -674,7 +674,7 @@ test.describe('privacy and offline behavior', () => {
       await page.reload({ waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.3.1');
       await expect(page.locator('#home')).toBeVisible();
-      await expect(page.getByRole('heading', { name: 'Your document, step by step.' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Work on your document.' })).toBeVisible();
     } finally {
       await context.setOffline(false);
     }
