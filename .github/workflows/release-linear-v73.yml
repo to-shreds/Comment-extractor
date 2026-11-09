@@ -1,0 +1,51 @@
+name: Verify and publish Comment Master v7.3.0 branch
+on:
+  push:
+    branches:
+      - ux/linear-workspace-v7.3.0
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out prepared source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Apply exact verified local patch
+        run: |
+          git apply --check .release/comment-master-v7.3.0.patch
+          git apply .release/comment-master-v7.3.0.patch
+          test "$(node -p "require('./package.json').version")" = "7.3.0"
+          test -f src/linear-workspace.mjs
+          test -f src/review-summary.mjs
+      - name: Use Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --fund=false
+      - name: Install Chromium test browser
+        run: npx playwright install --with-deps chromium
+      - name: Run full release QA
+        run: npm run qa
+      - name: Build and synchronize Pages runtime
+        run: npm run build:pages
+      - name: Verify runtime version and key files
+        run: |
+          node -e 'const m=require("./asset-manifest.json");if(m.version!=="7.3.0"||!m.files["./assets/linear-workspace.mjs"]||!m.files["./assets/review-summary.mjs"])process.exit(1); console.log("Verified Comment Master",m.version,m.buildId)'
+          cmp src/linear-workspace.mjs assets/linear-workspace.mjs
+          cmp src/review-summary.mjs assets/review-summary.mjs
+      - name: Commit verified release to branch
+        run: |
+          rm -f .release/comment-master-v7.3.0.patch .github/workflows/release-linear-v73.yml
+          rmdir .release || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Comment Master v7.3.0: verified linear workspace"
+          git push origin HEAD:ux/linear-workspace-v7.3.0
