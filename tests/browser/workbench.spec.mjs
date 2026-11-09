@@ -250,6 +250,44 @@ test.describe('home and navigation', () => {
 });
 
 test.describe('guided Word actions', () => {
+  test('the actual Choose Word document button opens a file chooser with an older cached app', async ({ page }) => {
+    // A previous version's worker would respond with stale JS/CSS to the unversioned URLs.
+    // Loading versioned URLs must avoid that cache even before a new worker activates.
+    const blocked = [];
+    const requests = [];
+    await page.addInitScript(() => {
+      Object.defineProperty(window, 'showOpenFilePicker', {
+        configurable: true,
+        value: () => { throw new Error('The main upload must use the normal file input, not the File System Access picker.'); }
+      });
+    });
+    await page.route('**/assets/**', async (route) => {
+      const url = new URL(route.request().url());
+      if (/\/assets\/workbench(?:-core)?\.(?:js|css|mjs)$/.test(url.pathname)) {
+        requests.push(url);
+        if (url.searchParams.get('v') !== '7.2.1') {
+          blocked.push(url.pathname);
+          await route.abort('failed');
+          return;
+        }
+      }
+      await route.continue();
+    });
+    await openShell(page);
+    const pendingChooser = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: 'Choose Word document', exact: true }).click();
+    const chooser = await pendingChooser;
+    expect(chooser.isMultiple()).toBe(false);
+    await chooser.setFiles(fixtures.originalDocx);
+    await expect(page.locator('#home-word-actions')).toBeVisible();
+    await expect(page.locator('#selected-files')).toContainText(fixtures.originalDocx.name);
+    await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
+    expect(blocked).toEqual([]);
+    for (const asset of ['workbench.css', 'workbench.js', 'workbench-core.mjs']) {
+      expect(requests.some((url) => url.pathname.endsWith(`/${asset}`))).toBe(true);
+    }
+  });
+
   test('choosing a Word file stays on a clear task menu and exports comments directly', async ({ page }) => {
     await openShell(page);
     await page.locator('#home-word-file-input').setInputFiles(fixtures.originalDocx);
