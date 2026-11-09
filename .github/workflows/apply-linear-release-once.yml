@@ -7,7 +7,7 @@ permissions:
   contents: write
 jobs:
   apply-prepared-release:
-    if: github.event.head_commit.message == 'Stage verified v7.3.0 patch for automated apply and QA' || github.event.head_commit.message == 'Fix baseline ancestry check for prepared release applicator'
+    if: github.event.head_commit.message == 'Stage verified v7.3.0 patch for automated apply and QA' || github.event.head_commit.message == 'Apply release patch with report writer restored'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
