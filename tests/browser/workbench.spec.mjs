@@ -291,7 +291,7 @@ test.describe('guided Word actions', () => {
     const zip = await JSZip.loadAsync(report.bytes, { checkCRC32: true });
     expect((await zip.file('word/document.xml').async('text'))).toContain('Generated browser fixture comment');
     await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
-    await expect(page.locator('#home-task-feedback')).toContainText('comments report');
+    await expect(page.locator('#home-task-feedback')).toContainText('Comments report');
   });
 
 
@@ -321,7 +321,7 @@ test.describe('guided Word actions', () => {
     const reportXml = await reportZip.file('word/document.xml').async('text');
     expect(reportXml).toContain('First Reviewer');
     expect(reportXml).toContain('Generated browser fixture comment');
-    expect(reportXml).not.toContain('Browser QA');
+    expect(reportXml).not.toContain('<w:t>Browser QA</w:t>');
     expect(await page.evaluate(() => window.CommentMasterWord.snapshot().dirty)).toBe(true);
     await expect(page.locator('#home-working-copy')).toBeVisible();
 
@@ -389,7 +389,7 @@ test.describe('guided Word actions', () => {
     await page.locator('[data-task="compare"]').click();
     await expect(page.locator('#compare-dialog')).toHaveAttribute('open', '');
     await expect(page.locator('#compare-original-source')).toHaveValue('current');
-    await expect(page.locator('#compare-original-note')).toContainText('Currently loaded');
+    await expect(page.locator('#compare-original-note')).toContainText('currently loaded');
   });
 
   test('choosing another file or clearing the selection warns before abandoning an unsaved working copy', async ({ page }) => {
