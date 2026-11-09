@@ -49,7 +49,7 @@ async function openShell(page) {
   });
   await page.goto('/');
   await page.waitForFunction(() => (
-    window.CommentMasterWorkbench?.version === '7.2.0'
+    window.CommentMasterWorkbench?.version === '7.2.1'
     && typeof window.CommentMasterWord?.openFile === 'function'
   ));
   await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
@@ -250,6 +250,34 @@ test.describe('home and navigation', () => {
 });
 
 test.describe('guided Word actions', () => {
+  test('the actual Choose Word document button opens a file chooser with versioned app assets', async ({ page }) => {
+    const requests = [];
+    page.on('request', (request) => {
+      const url = new URL(request.url());
+      if (/\/assets\/workbench(?:-core)?\.(?:js|css|mjs)$/.test(url.pathname)) {
+        requests.push({ path: url.pathname, version: url.searchParams.get('v') });
+      }
+    });
+    await page.addInitScript(() => {
+      Object.defineProperty(window, 'showOpenFilePicker', {
+        configurable: true,
+        value: () => { throw new Error('The main upload must use the normal file input, not the File System Access picker.'); }
+      });
+    });
+    await openShell(page);
+    const pendingChooser = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: 'Choose Word document', exact: true }).click();
+    const chooser = await pendingChooser;
+    expect(chooser.isMultiple()).toBe(false);
+    await chooser.setFiles(fixtures.originalDocx);
+    await expect(page.locator('#home-word-actions')).toBeVisible();
+    await expect(page.locator('#selected-files')).toContainText(fixtures.originalDocx.name);
+    await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
+    for (const asset of ['workbench.css', 'workbench.js', 'workbench-core.mjs']) {
+      expect(requests.some((request) => request.path.endsWith(`/${asset}`) && request.version === '7.2.1')).toBe(true);
+    }
+  });
+
   test('choosing a Word file stays on a clear task menu and exports comments directly', async ({ page }) => {
     await openShell(page);
     await page.locator('#home-word-file-input').setInputFiles(fixtures.originalDocx);
@@ -692,7 +720,7 @@ test.describe('privacy and offline behavior', () => {
     if (!await page.evaluate(() => Boolean(navigator.serviceWorker.controller))) {
       await page.reload();
       await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
-      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.2.0');
+      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.2.1');
     }
 
     const cacheReport = await page.evaluate(async () => {
@@ -723,7 +751,7 @@ test.describe('privacy and offline behavior', () => {
     await context.setOffline(true);
     try {
       await page.reload({ waitUntil: 'domcontentloaded' });
-      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.2.0');
+      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.2.1');
       await expect(page.locator('#home')).toBeVisible();
       await expect(page.getByRole('heading', { name: 'What do you want to do with your Word document?' })).toBeVisible();
     } finally {

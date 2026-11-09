@@ -1,5 +1,5 @@
-const VERSION = "7.2.0";
-const BUILD_ID = "03bd9d629d45b389891684cf";
+const VERSION = "7.2.1";
+const BUILD_ID = "7f6136ffa20fadffbbac4dfb";
 const CACHE_PREFIX = 'comment-master-';
 const CORE_CACHE = `${CACHE_PREFIX}core-${VERSION}-${BUILD_ID}`;
 const OPTIONAL_CACHE = `${CACHE_PREFIX}optional-${VERSION}-${BUILD_ID}`;
@@ -282,16 +282,20 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  const isCore = CORE_URLS.has(request.url);
+  // Versioned CSS/JS URLs bypass a waiting older worker's cache-first responses.
+  // Within the current worker they use the same verified, precached file bytes.
+  const versionedBaseUrl = url.search === `?v=${VERSION}` ? `${url.origin}${url.pathname}` : null;
+  const isCore = CORE_URLS.has(request.url) || Boolean(versionedBaseUrl && CORE_URLS.has(versionedBaseUrl));
   const isOptional = OPTIONAL_URLS.has(request.url);
   if (!isCore && !isOptional) return;
 
   event.respondWith((async () => {
     const cacheName = isCore ? CORE_CACHE : OPTIONAL_CACHE;
+    const cacheKey = versionedBaseUrl && CORE_URLS.has(versionedBaseUrl) ? versionedBaseUrl : request.url;
     const cache = await caches.open(cacheName);
-    const cached = await cache.match(request.url);
+    const cached = await cache.match(cacheKey);
     if (cached) return cached;
-    return fetchAndStore(cacheName, request, request.url);
+    return fetchAndStore(cacheName, request, cacheKey);
   })());
 });
 
