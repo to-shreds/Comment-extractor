@@ -4385,6 +4385,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
 
   async function exportCommentsWord() {
     requireFile();
+    refreshAfterVisibleCommit(commitVisibleEdits());
     await withDocumentBusy('Building comments report…', async () => {
       if (!window.WFSWord) throw new Error('The embedded Word export writer is unavailable.');
       const report = buildCommentReport();
@@ -4684,6 +4685,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
     exportComments: () => exportCommentsWord(),
     renameReviewer: (fromKey, replacement) => {
       requireFile();
+      refreshAfterVisibleCommit(commitVisibleEdits());
       const name = String(replacement || '').trim();
       if (!name) throw new Error('Enter a new reviewer name.');
       const key = String(fromKey || '');
