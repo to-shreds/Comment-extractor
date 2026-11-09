@@ -1,5 +1,5 @@
-const VERSION = "7.1.1";
-const BUILD_ID = "5d8251752eae0ee36cb45d76";
+const VERSION = "7.2.0";
+const BUILD_ID = "03bd9d629d45b389891684cf";
 const CACHE_PREFIX = 'comment-master-';
 const CORE_CACHE = `${CACHE_PREFIX}core-${VERSION}-${BUILD_ID}`;
 const OPTIONAL_CACHE = `${CACHE_PREFIX}optional-${VERSION}-${BUILD_ID}`;
