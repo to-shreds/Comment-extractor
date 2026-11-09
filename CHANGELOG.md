@@ -1,5 +1,13 @@
 # Changelog
 
+## 7.2.1 - 2026-11-09
+
+- Fixed the new **Choose Word document** button appearing unresponsive when an older installed service worker delivered stale JavaScript to the new landing page.
+- Added version-specific app CSS and JavaScript URLs to avoid old cache interception while retaining verified offline support in the updated service worker.
+- Made the primary upload use the normal browser file input rather than the optional File System Access picker.
+- Added a real-click browser test that opens the file chooser and exercises the selected-file workflow while rejecting stale unversioned app assets.
+
+
 ## 7.2.0 - 2026-11-09
 
 - Replaced the general-purpose Home screen with a Word-first two-step flow: select one DOCX, then choose a clear task.
