@@ -1250,7 +1250,7 @@ tbody td input { min-width: 140px; min-height: 32px; padding: 5px 7px; font-size
       setStatus(`Loaded ${candidate.fileName}. Found ${candidate.items.length} review item${plural(candidate.items.length)}.`, true);
       requestAnimationFrame(() => {
         const overviewTab = ui.tabs.querySelector('[data-tab="overview"]');
-        if (overviewTab) overviewTab.focus();
+        if (overviewTab && document.body.dataset.route === 'word') overviewTab.focus();
       });
     } catch (error) {
       if (token === state.loadToken) showError(error);
