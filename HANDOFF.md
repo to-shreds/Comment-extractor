@@ -2,38 +2,31 @@
 
 ## Current state
 
-The v7.3.0 linear-workspace redesign is implemented and built locally, with the checks documented in TEST_REPORT. It is **not published**. GitHub tools in the implementing session exposed read actions only; repository writes, publication, and remote ProjectStatus persistence were unavailable. The live site and remote main remain v7.2.2.
+Comment Master v7.3.0's linear Word workspace has passed full GitHub Actions QA and the exact Pages build. The canonical source is `to-shreds/Comment-extractor` on `main`, and v7.3.0 is published on GitHub Pages. The previous release, v7.2.2, remains available at `e33d85bc8c8f778347c760a84ffecd4990d6b31e`.
 
-- Canonical implementation repository: `to-shreds/Comment-extractor`.
-- Base main: `e33d85bc8c8f778347c760a84ffecd4990d6b31e`.
-- Proposed branch name: `ux/linear-workspace-v7.3.0` (not created remotely).
-- Local build version: `7.3.0`; runtime build ID `763d385a9b0563918e441964`.
-- Deliverable: changes-only release bundle and a Git patch against the verified base, including source, generated runtime files, tests, screenshots, verification evidence, and a prepared ProjectStatus update.
+The release introduces a left-anchored sidebar, collapsible editing sections with meaningful per-document status, and two bottom actions: download the updated Word document, or export a configurable comments/redlines summary. The new summary defaults to both review types and every column selected, with the source-document appendix off. All changes use the same browser-local working document.
 
-## Implemented
+## Source and verification
 
-- One linear Word workspace with nine collapsible sections and a left tool/status sidebar. Manual edits retain the original engine with a simpler card presentation.
-- Real per-document section activity, viewed/opened indicators, undo-aware status, current/outdated-download indicators, and reset on a replacement file.
-- Two bottom final actions: updated Word document; configurable comment/redline summary. Both review types and all eight columns are selected by default; source-document appendix is unchecked.
-- Summary is generated from the same current working copy as its optional appendix. Source XML and all other package parts are preserved; signatures and special initial section breaks fail closed.
-- Existing advanced Word tools, PDF tools, conversion, batch, clean copy, and spreadsheet/clipboard export remain available.
-- Fixed zero-second date normalization causing phantom pending edits. Kept native file-input behavior and versioned assets that fixed the prior broken upload.
-
-## Verified
-
-Both legacy scripts; 41 local Node checks (25 existing Word/core, 11 new summary, 5 privacy); 13 local Word browser scenarios; generated DOCX package comparison; visual render inspection; pixel equality of the two test source pages after summary insertion; source/runtime build and hash verification. See TEST_REPORT for exact environments and limits. Full production module/PDF/offline browser regression remains unrun, not passed.
+- Release branch: `ux/linear-workspace-v7.3.0`.
+- Release runtime version: `7.3.0`, build ID `df44ef3b1ebc6acf5d1c35d3`.
+- Full QA run: https://github.com/to-shreds/Comment-extractor/actions/runs/42697959511
+- Both legacy regression suites passed, 57 unit tests passed, 5 privacy tests passed, and all 61 Chromium browser tests passed without retries.
+- `npm run build:pages` succeeded; the root manifest and generated assets were synchronized. The new linear-workspace and review-summary source assets match their runtime copies.
+- The two release-only PDF regressions were resolved: the malformed-PDF test now enters the PDF workspace before attempting the drop, and the 320px mobile app header stays within the viewport. The edited PDF route continued passing all functional tests.
+- The earlier Word-only local verification inspected source-package preservation in the appended summary output and checked all 13 targeted local scenarios. See `TEST_REPORT.md`.
 
 ## Do not break
 
-- Never upload documents or add telemetry/persistent document archives.
-- Maintain one current Word working copy across all sections and exports. Applying edits must not force downloads.
-- Keep all controls easy to find through the sidebar; opening a section must not falsely mark it completed.
-- Export current data, not the original upload or stale rendered rows. Preserve source-file identity and unsaved edits.
-- Keep the two final main actions at the bottom, with the specified summary checkbox defaults.
-- Retain the existing expert editing, PDF, and other engines rather than replacing them with partial implementations.
-- Keep release-specific asset URLs and matching service-worker allowlists. Rebuild runtime from source, do not hand-edit generated copies.
-- Do not claim arbitrary original-document pagination is unchanged when summary pages are added.
+- All documents are browser-local; do not add uploads, analytics, telemetry, or persistent document archives.
+- Do not force downloads between editing steps. Actions operate on one in-memory working copy.
+- Maintain the visible sidebar and collapsible sections without clutter, and clearly distinguish completed edits from merely viewing a section.
+- The two final downloads must use the current working copy and not change the source.
+- When including a source-document appendix, retain original DOCX body XML and package parts. Refuse signatures or structurally incompatible first-section documents rather than silently flattening content.
+- Preserve advanced Word/PDF features, comparison, combine, clean copy, batch, conversion, and offline support.
+- Keep version-specific app asset URLs and matching service-worker rules to prevent the prior stale JavaScript upload-button bug.
+- Every release requires `npm run qa`, `npm run build:pages`, and a successful GitHub Pages deployment. Verify the real upload button, summary dialog defaults, PDF mobile viewport, and offline loading.
 
 ## Next action
 
-Apply the prepared patch to a checkout of the known base on the proposed branch. Run the full locked-dependency `npm run qa`, fix any actual failures without hiding regressions, run `npm run build:pages`, publish, and verify the live application. Update HANDOFF and the remote ProjectStatus as the final step. The work is preserved; do not restart the design or regenerate a new unrelated version.
+The verified release was merged as commit `249d06a83b1f5da92746e6a2b4ed8cba71416007`. GitHub Pages deployment run https://github.com/to-shreds/Comment-extractor/actions/runs/42698554614 completed successfully. The next action is real-user validation of the simplified interface; no release-blocking work remains. Existing browser-only document and PDF structural limitations remain documented in README.

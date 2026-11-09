@@ -1,6 +1,6 @@
 # Changelog
 
-## 7.3.0 - 2026-11-09 (unpublished)
+## 7.3.0 - 2026-11-09
 
 - Replaced the task chooser with one linear workspace containing collapsible editing sections and a left-anchored tools/progress sidebar.
 - Reused existing editing engines and controls for manual comment/redline/name/date edits, find and replace, metadata, new tracked changes, inspection, comparison, and combination. Other tools remain in the sidebar.
