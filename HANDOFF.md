@@ -2,41 +2,47 @@
 
 ## Current state
 
-Comment Master v7.1.1 is the stress-tested patch for the existing file-first interface. The canonical implementation and synchronized GitHub Pages runtime are in this repository on `main`.
+Comment Master v7.2.0 is the verified Word-first guided-home release. The canonical source and synchronized GitHub Pages runtime are in this repository. The release changes the interface, not the underlying document engines.
 
-## Controlling sources
-
-- Repository: `to-shreds/Comment-extractor`, branch `main`.
-- Release: `7.1.1`; manifest build ID: `5d8251752eae0ee36cb45d76`.
-- Read `TEST_REPORT.md`, `CHANGELOG.md`, and source/tests for verification details.
-- Previous known-good release: `archive/v7.1.0-before-stress-test`, at `516a4ee00a009bc622250f98aa1d32088c5e4905`.
-- Readiness and next steps: `to-shreds/ProjectStatus/projects/comment-master/STATUS.md`.
+- Repository: `to-shreds/Comment-extractor`, release target `main`.
+- Public site: https://to-shreds.github.io/Comment-extractor/
+- Release version: `7.2.0`.
+- Verified manifest build ID: `03bd9d629d45b389891684cf`.
+- Release PR: https://github.com/to-shreds/Comment-extractor/pull/2
+- Prior known-good main release: `78e51ce50f4982fed6fd37282d94f8fbfbebaccc` (v7.1.1).
+- Readiness: `to-shreds/ProjectStatus/projects/comment-master/STATUS.md`.
 
 ## Completed work
 
-- Preserved Home's single primary file picker and progressive disclosure; shortened instructions, removed duplicate header controls, and fixed narrow-screen header overflow and More dismissal. PDF Export controls appear before the preview on phones.
-- Protected active Word/PDF working copies across malformed inputs, overlapping opens, cancellation, returning to the same File, and Clear Local Workspace. Clearing also removes document previews and result content.
-- Fixed PDF Open another and cancelled Save state, cumulative queue limits, invalid binder drag data, stale PDF search/thumbnail work, and colliding ZIP outputs.
-- Preserved Word comparison paragraph order and repeated insertions. Unsupported new structural containers fail closed rather than losing table structure.
-- Made the staged current Word Clean Copy use its in-memory edits.
-- Improved PDF annotation and image-resource metadata removal, external action-chain detection, and internal link destination mapping after sanitization.
-- Corrected OCR coverage for long identifiers and placement on cropped/rotated pages.
+- Replaced general-purpose Home with two steps: choose a single Word `.docx` file, then choose a plainly named task.
+- Added prominent `Export comments`, `Change reviewer names`, `Review comments and tracked changes`, `Make a clean copy`, and `Compare or combine documents` choices.
+- Exports a comments report directly without requiring the user to navigate the editor, using the existing validated Word report writer.
+- Guides reviewer renaming with an existing-reviewer selector, replacement-name field, and a single download action. Applies attribution changes to matching comments and tracked changes via the existing Word batch editor and verified DOCX export.
+- Keeps PDF, multi-file, binder, batch, conversion, and specialist tools under an expandable section or the More navigation.
+- Preserves the original file and existing unsaved-document protections. Does not introduce uploads, telemetry, new document persistence, or external processing.
+- Added responsive layout, keyboard focus placement, meaningful form labels, clear error and success feedback, and 3 focused browser tests. Updated obsolete tests that referenced the previous Home controls.
 
 ## Verification
 
-Full `npm run qa` passed on the release source: both legacy regression scripts, 46 unit tests, 4 privacy tests, and all 49 Chromium specifications. The browser suite completed in 55.4 seconds without retries. Coverage includes actual exported-package inspection, 80 deterministic Word edit scenarios, a 2,000-paragraph comparison, a 240-page PDF transform/cancellation check, malformed inputs, Save/file-picker cancellation, pending-load cleanup, offline use, and 320 px PDF Export. `npm run build:pages` regenerated and verified the complete root runtime.
+Release branch `ux/word-first-home-2026-11-09` passed the complete `npm run qa` contract in GitHub Actions run https://github.com/to-shreds/Comment-extractor/actions/runs/42648229515:
+
+- Both legacy Word export and comparison regression suites passed.
+- 46 unit tests passed.
+- 4 privacy and offline tests passed.
+- All 52 Chromium browser tests passed with zero retries, including direct comments report download, edited Word round trip with comment and redline attribution verified inside the DOCX ZIP, input validation, mobile layout, PDF flows, comparison, and offline use.
+- `npm run build:pages` rebuilt the static runtime, synchronized the root runtime assets, and verified hashes.
+- Root `asset-manifest.json` reports version 7.2.0 and build ID `03bd9d629d45b389891684cf`.
 
 ## Do not break
 
-- Documents must remain browser-local. Do not add uploads, analytics, telemetry, or persistent document archives.
-- Keep Home file-first and keep specialist tools behind More.
-- Same-File identity, load tokens, and candidate validation protect current work; filename equality is not document identity.
-- Preserve all insertion occurrences and order; refuse unsupported structures instead of flattening them.
-- PDF internal destinations must refer to actual output page refs after rebuilding.
-- Treat source files as authoritative and synchronize the root with `npm run build:pages`.
-- Run the complete `npm run qa` release contract before publication.
-- Restore the entire entry/assets/manifest/service-worker runtime together when rolling back.
+- Keep all document processing local to the browser and never archive document content.
+- Keep one Word file upload and the immediate, understandable task selection as the default experience.
+- Do not force Export comments or Change reviewer names through the full editor.
+- Keep detailed Word, comparison, PDF, multi-file, and specialist tools available without crowding Home.
+- Protect original documents, unsaved edits, per-file identity, and validated output; never silently overwrite a user's file.
+- Use source files in `index.html` and `src/` as authoritative. Rebuild and synchronize the committed runtime using `npm run build:pages`, then run complete `npm run qa` before publication.
+- Restore the entrypoint, assets, manifest, and service worker together during rollback.
 
 ## Remaining limits and next action
 
-No material implementation or QA work remains for this stress-test patch. Native Word rendering and every PDF producer are outside the automated compatibility coverage. Existing English-only OCR, semantic Office conversion, standard PDF-font character limits, rasterized secure redaction, and sanitization flattening/rebuild limits remain documented in README and TEST_REPORT. Use the release normally; the next changes should come from specific real-use failures or friction.
+No unresolved code or test failures were reported in release QA. The existing limits in README remain: English OCR, semantic Office conversion, PDF forms and fonts, browser rendering differences, and protective fail-closed handling of unsupported Word structures. Monitor actual first-time user interactions with the new task chooser for wording or discoverability issues, without reintroducing complexity. The release-only GitHub Actions workflow targets its feature branch and need not be used for unrelated future work.
