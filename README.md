@@ -1,6 +1,6 @@
 # Comment Master
 
-Comment Master v7.3.0 is a private, browser-local document workbench with a beginner-friendly Word home page, PDF work, document comparison, conversion, binders, cleanup, inspection, and batch processing.
+Comment Master v7.3.1 is a private, browser-local document workbench with a beginner-friendly Word home page, PDF work, document comparison, conversion, binders, cleanup, inspection, and batch processing.
 
 The application is a static site. It does not require an installer, a local server, a browser extension, a cloud document-processing service, or a third-party account. Documents are processed in the browser and are not uploaded by Comment Master.
 
@@ -18,9 +18,11 @@ The optional appendix uses the exact current working package from which the summ
 
 No edit forces a download. Original files are never overwritten. Document state remains in memory in the current tab, not in remote storage.
 
-## v7.3.0 publication state
+## v7.3.1 publication state
 
-This development build has been built and locally tested but has **not** been committed, merged, or deployed. The current public site remains v7.2.2. See `HANDOFF.md` and `TEST_REPORT.md` for the exact verification boundary and next release steps. Do not describe the full production test suite as passed until it is actually run in the configured environment.
+Comment Master v7.3.1 is published at https://to-shreds.github.io/Comment-extractor/ with the editorial-workbench redesign. Its production QA [passed](https://github.com/to-shreds/Comment-extractor/actions/runs/42703810452) with both legacy regression suites, 57 unit tests, 5 privacy/offline tests, and all 63 Chromium browser tests. The exact Pages runtime was synchronized and verified with build ID `373d00a00a7d9ffb85226dd4`. [GitHub Pages deployment](https://github.com/to-shreds/Comment-extractor/actions/runs/42704301246) for release commit `295482e531a2c013135a66421de26174698f33ef` succeeded.
+
+The redesign uses paper-toned surfaces, petrol controls, copper editorial accents, flatter panels, an annotation-inspired brand mark, and consistent styling across Word, PDF, comparison, dialogs, and batch tools. Source Serif 4, IBM Plex Sans, and IBM Plex Mono are bundled from pinned, checksum-verified open-source font files, served from the app's own origin, and included in the service worker's offline core-asset list. No document processing or in-memory workflow behavior was removed.
 
 ## Current capabilities
 
@@ -28,7 +30,7 @@ This development build has been built and locally tested but has **not** been co
 
 - Inspect comments, tracked changes, replies, authors, dates, relationships, metadata, package parts, and review activity.
 - Edit review attribution, dates, text, links, metadata, and supported OOXML content with undo and explicit export.
-- Apply Quick Edits, filters, selections, regular-expression replacement, Ghost Writer, Forensics, and existing advanced tools.
+- Apply Quick Edits, filters, selections, regular-expression replacement, Tracked replacement, Document structure, and existing advanced tools.
 - Compare two DOCX files with word-level changes for ordinary paragraphs and tracked paragraph-format changes.
 - Preview a comparison as an inline redline, original, revised, or synchronized side-by-side view, move between changes, then save the redlined DOCX.
 - Compare formatted text pasted into two rich-text inputs and export the result as a DOCX redline.
@@ -112,6 +114,7 @@ Requirements for contributors:
 
 ```bash
 npm ci --ignore-scripts --no-audit --fund=false
+npm run fonts:install   # Fetch and verify the six pinned, licensed local font files
 npx playwright install chromium
 npm run qa
 ```
@@ -126,11 +129,11 @@ npm run test:unit    # Core, PDF, privacy, filename, and Word v7 regressions
 npm run test:e2e     # Browser workflow, stress, privacy, offline, and responsive tests
 ```
 
-`npm run qa` remains the release contract. On the current branch it performs a production build, the legacy regression suites, 46 Node unit tests, 4 dedicated privacy tests, and 49 Playwright Chromium specifications. Three of the Node tests cover the separately packaged Word add-in reviewer-name helper added after the v7.0.1 workbench release.
+`npm run qa` remains the release contract. For v7.3.1 it performs a production build, both legacy regression suites, 57 unit tests, 5 dedicated privacy/offline tests, and 63 Playwright Chromium browser tests. Three of the Node tests cover the separately packaged Word add-in reviewer-name helper. The additional browser tests verify the editorial visual system, local font loading, no external font requests, and responsive widths.
 
 Playwright requires its matching Chromium executable. In a new development environment, prepare it with `npx playwright install chromium` before running `npm run qa` or `npm run test:e2e`. The browser suite starts the generated `dist/` site on a loopback-only static QA server and does not change the browser-only production architecture.
 
-The build copies only the production entry point, workbench assets, pinned same-origin vendor files, PDF.js support assets, license notices, web manifest, and generated service worker into `dist/`. It also generates `asset-manifest.json` with a content-derived build ID plus byte sizes and SHA-256 values for every other packaged runtime file. `npm run build:pages` then synchronizes the generated `assets/`, `vendor/`, service worker, and asset manifest to the repository root. GitHub Pages publishes that committed root directly from `main`; there is no custom deployment Action.
+The build copies only the production entry point, workbench assets, six same-origin editorial fonts and their license notices, pinned same-origin vendor files, PDF.js support assets, license notices, web manifest, and generated service worker into `dist/`. It also generates `asset-manifest.json` with a content-derived build ID plus byte sizes and SHA-256 values for every other packaged runtime file. `npm run build:pages` then synchronizes the generated `assets/`, `vendor/`, service worker, and asset manifest to the repository root. GitHub Pages publishes that committed root directly from `main`; there is no custom deployment Action.
 
 See [Architecture](docs/ARCHITECTURE.md), [Deployment](docs/DEPLOYMENT.md), [Test report](TEST_REPORT.md), [Changelog](CHANGELOG.md), and [Third-party notices](THIRD_PARTY_NOTICES.md).
 

@@ -2,31 +2,39 @@
 
 ## Current state
 
-Comment Master v7.3.0's linear Word workspace has passed full GitHub Actions QA and the exact Pages build. The canonical source is `to-shreds/Comment-extractor` on `main`, and v7.3.0 is published on GitHub Pages. The previous release, v7.2.2, remains available at `e33d85bc8c8f778347c760a84ffecd4990d6b31e`.
+**READY.** Comment Master v7.3.1 is published at https://to-shreds.github.io/Comment-extractor/. The canonical source is `to-shreds/Comment-extractor` on `main`. The editorial visual redesign is complete and verified, building on the v7.3.0 linear Word workflow rather than replacing it.
 
-The release introduces a left-anchored sidebar, collapsible editing sections with meaningful per-document status, and two bottom actions: download the updated Word document, or export a configurable comments/redlines summary. The new summary defaults to both review types and every column selected, with the source-document appendix off. All changes use the same browser-local working document.
+- Release code merge: `295482e531a2c013135a66421de26174698f33ef` (PR https://github.com/to-shreds/Comment-extractor/pull/6).
+- Runtime version: `7.3.1`, manifest build ID `373d00a00a7d9ffb85226dd4`.
+- Full QA: https://github.com/to-shreds/Comment-extractor/actions/runs/42703810452, success.
+- Pages publication: https://github.com/to-shreds/Comment-extractor/actions/runs/42704301246, success.
+- Previous working release: v7.3.0, main commit `0311ecce52aac3729a78b2e6a1f8ab8a12a16a35`, preserved in Git history.
 
-## Source and verification
+## What changed
 
-- Release branch: `ux/linear-workspace-v7.3.0`.
-- Release runtime version: `7.3.0`, build ID `df44ef3b1ebc6acf5d1c35d3`.
-- Full QA run: https://github.com/to-shreds/Comment-extractor/actions/runs/42697959511
-- Both legacy regression suites passed, 57 unit tests passed, 5 privacy tests passed, and all 61 Chromium browser tests passed without retries.
-- `npm run build:pages` succeeded; the root manifest and generated assets were synchronized. The new linear-workspace and review-summary source assets match their runtime copies.
-- The two release-only PDF regressions were resolved: the malformed-PDF test now enters the PDF workspace before attempting the drop, and the 320px mobile app header stays within the viewport. The edited PDF route continued passing all functional tests.
-- The earlier Word-only local verification inspected source-package preservation in the appended summary output and checked all 13 targeted local scenarios. See `TEST_REPORT.md`.
+- Replaced generic blue gradients, pill-heavy badges, rounded dashboard cards, and shadows with a warm paper / charcoal / petrol / copper editorial system.
+- Applied Source Serif 4 to primary headings, IBM Plex Sans to controls and body text, and IBM Plex Mono to metadata and technical labels.
+- Created an understated annotation-inspired brand mark and consistent appearance for Word, PDF, comparison, batch tools, dialogs, review rows, tables, and mobile layouts.
+- Updated a few vague UI labels, retaining familiar green insertions and red deletions.
+- Bundled six checksum-verified OFL-licensed fonts under `assets/fonts`. The runtime never loads fonts from remote services. The font files are explicit core service-worker assets, available offline.
+- Preserved nine collapsible Word sections, the left workflow sidebar, its accurate edit/undo status, and the two final Word/report downloads.
+
+## Verification
+
+- Both legacy regression suites passed; 57 unit tests, 5 privacy/offline tests, and all 63 Chromium tests passed.
+- Browser tests include typography/font loading, no third-party font requests, 320/390/768/1280px overflow checks, PDF on mobile, Word upload/edit/undo, original-package preservation, document comparison, report options, and offline behavior.
+- `npm run build:pages` generated and synchronized the exact Pages assets and manifest. Manifest and six bundled font files were independently checked on `main`.
+- GitHub Pages completed the release deployment successfully.
 
 ## Do not break
 
-- All documents are browser-local; do not add uploads, analytics, telemetry, or persistent document archives.
-- Do not force downloads between editing steps. Actions operate on one in-memory working copy.
-- Maintain the visible sidebar and collapsible sections without clutter, and clearly distinguish completed edits from merely viewing a section.
-- The two final downloads must use the current working copy and not change the source.
-- When including a source-document appendix, retain original DOCX body XML and package parts. Refuse signatures or structurally incompatible first-section documents rather than silently flattening content.
-- Preserve advanced Word/PDF features, comparison, combine, clean copy, batch, conversion, and offline support.
-- Keep version-specific app asset URLs and matching service-worker rules to prevent the prior stale JavaScript upload-button bug.
-- Every release requires `npm run qa`, `npm run build:pages`, and a successful GitHub Pages deployment. Verify the real upload button, summary dialog defaults, PDF mobile viewport, and offline loading.
+- Process documents entirely inside the browser. No uploads, telemetry, remote document handling, or persistent document storage.
+- Preserve the current working Word document across multiple edits and downloads. Never overwrite an uploaded source or force a download between tasks.
+- Keep the linear sidebar and collapsible sections; distinguish applying edits from viewing sections, and restore status on Undo.
+- Both final downloads use current working data. For the optional source-document appendix, preserve package contents, and refuse unsupported signed/complex-section inputs rather than flattening them.
+- Retain all PDF and specialist tools, redline color semantics, keyboard focus, responsive layouts, and offline support.
+- Maintain versioned CSS/JS import URLs, the service-worker core allowlist, and the six bundled fonts. Run `npm run fonts:install`, `npm run qa`, and `npm run build:pages` for future releases.
 
 ## Next action
 
-The verified release was merged as commit `249d06a83b1f5da92746e6a2b4ed8cba71416007`. GitHub Pages deployment run https://github.com/to-shreds/Comment-extractor/actions/runs/42698554614 completed successfully. The next action is real-user validation of the simplified interface; no release-blocking work remains. Existing browser-only document and PDF structural limitations remain documented in README.
+The redesign is ready to use. Collect practical feedback about readability and efficiency from real document work; no known release blockers remain. Existing Word/PDF structural limits remain documented in `README.md`.
