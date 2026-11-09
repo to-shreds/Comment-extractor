@@ -1,5 +1,14 @@
 # Changelog
 
+## 7.2.0 - 2026-11-09
+
+- Replaced the general-purpose Home screen with a Word-first two-step flow: select one DOCX, then choose a clear task.
+- Made **Export comments** a direct Word-report download, without navigating editor tabs or export settings.
+- Added a guided **Change reviewer names** form that selects an existing commenter/redline author and saves a new DOCX with that attribution changed across comments and tracked changes.
+- Kept detailed review, clean-copy, comparison, PDF, multi-file, conversion, and specialist tools accessible without crowding the main task selection.
+- Added mobile layout, screen-reader descriptions, input validation, explicit save status, and focused browser regression coverage; original uploaded files continue to be processed locally without being overwritten.
+
+
 ## 7.1.1 - 2026-10-01
 
 - Kept the file-first workflow, shortened Home instructions, removed the duplicate Home header picker, and made the mobile header compact. PDF Export controls appear above the page preview on phones. More closes when users click outside it.
