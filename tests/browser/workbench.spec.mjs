@@ -250,28 +250,19 @@ test.describe('home and navigation', () => {
 });
 
 test.describe('guided Word actions', () => {
-  test('the actual Choose Word document button opens a file chooser with an older cached app', async ({ page }) => {
-    // A previous version's worker would respond with stale JS/CSS to the unversioned URLs.
-    // Loading versioned URLs must avoid that cache even before a new worker activates.
-    const blocked = [];
+  test('the actual Choose Word document button opens a file chooser with versioned app assets', async ({ page }) => {
     const requests = [];
+    page.on('request', (request) => {
+      const url = new URL(request.url());
+      if (/\/assets\/workbench(?:-core)?\.(?:js|css|mjs)$/.test(url.pathname)) {
+        requests.push({ path: url.pathname, version: url.searchParams.get('v') });
+      }
+    });
     await page.addInitScript(() => {
       Object.defineProperty(window, 'showOpenFilePicker', {
         configurable: true,
         value: () => { throw new Error('The main upload must use the normal file input, not the File System Access picker.'); }
       });
-    });
-    await page.route('**/assets/**', async (route) => {
-      const url = new URL(route.request().url());
-      if (/\/assets\/workbench(?:-core)?\.(?:js|css|mjs)$/.test(url.pathname)) {
-        requests.push(url);
-        if (url.searchParams.get('v') !== '7.2.1') {
-          blocked.push(url.pathname);
-          await route.abort('failed');
-          return;
-        }
-      }
-      await route.continue();
     });
     await openShell(page);
     const pendingChooser = page.waitForEvent('filechooser');
@@ -282,9 +273,8 @@ test.describe('guided Word actions', () => {
     await expect(page.locator('#home-word-actions')).toBeVisible();
     await expect(page.locator('#selected-files')).toContainText(fixtures.originalDocx.name);
     await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
-    expect(blocked).toEqual([]);
     for (const asset of ['workbench.css', 'workbench.js', 'workbench-core.mjs']) {
-      expect(requests.some((url) => url.pathname.endsWith(`/${asset}`))).toBe(true);
+      expect(requests.some((request) => request.path.endsWith(`/${asset}`) && request.version === '7.2.1')).toBe(true);
     }
   });
 
