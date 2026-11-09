@@ -1,13 +1,13 @@
-name: Comment Master Guided Home QA
+name: Comment Master Release QA
 
 on:
   push:
     branches:
-      - ux/word-first-home-2026-11-09
+      - fix/7.2.1-stale-cache-upload
   workflow_dispatch:
 
 concurrency:
-  group: guided-word-home-${{ github.ref }}
+  group: comment-master-release-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
