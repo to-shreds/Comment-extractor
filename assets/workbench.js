@@ -1,4 +1,4 @@
-import { initLinearWorkspace } from './linear-workspace.mjs?v=7.3.0';
+import { initLinearWorkspace } from './linear-workspace.mjs?v=7.3.1';
 import * as pdfjsLib from '../vendor/pdfjs/pdf.mjs';
 import DOMPurify from '../vendor/dompurify/purify.es.mjs';
 import { marked } from '../vendor/marked/marked.esm.js';
@@ -6,7 +6,7 @@ import {
   WORKBENCH_VERSION, assertSafeFiles, contextualSuggestions, detectFormat,
   escapeHtml, extensionOf, formatLabel, humanBytes, parsePageRanges,
   productFilename, safeFilename, yieldToMain
-} from './workbench-core.mjs?v=7.3.0';
+} from './workbench-core.mjs?v=7.3.1';
 import {
   addPdfMarks, containsRawString, createPdfFromImages, createTextPdf,
   extractPdf, fillAndFlattenPdf, inspectPdfStructure, loadPdf, mergePdfInputs,

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "version": "7.3.0",
-  "buildId": "df44ef3b1ebc6acf5d1c35d3",
+  "version": "7.3.1",
+  "buildId": "373d00a00a7d9ffb85226dd4",
   "coreAssets": [
     "./index.html",
     "./manifest.webmanifest",
@@ -9,6 +9,13 @@
     "./assets/workbench.css",
     "./assets/workbench.js",
     "./assets/linear-workspace.css",
+    "./assets/editorial-theme.css",
+    "./assets/fonts/ibm-plex-mono-latin-400-normal.woff2",
+    "./assets/fonts/ibm-plex-mono-latin-600-normal.woff2",
+    "./assets/fonts/ibm-plex-sans-latin-wght-italic.woff2",
+    "./assets/fonts/ibm-plex-sans-latin-wght-normal.woff2",
+    "./assets/fonts/source-serif-4-latin-wght-italic.woff2",
+    "./assets/fonts/source-serif-4-latin-wght-normal.woff2",
     "./assets/linear-workspace.mjs",
     "./assets/review-summary.mjs",
     "./assets/workbench-core.mjs",
@@ -231,16 +238,56 @@
   },
   "files": {
     "./THIRD_PARTY_NOTICES.md": {
-      "bytes": 5500,
-      "sha256": "999b933ac2ecbe745e89828e6454d9d7ac373ef9299e5e3c4ec0538511543b71"
+      "bytes": 6519,
+      "sha256": "97ccef95b90cf6b31c90ccb322cb046e7baff494ec36b6c714c0c529c4d24030"
+    },
+    "./assets/editorial-theme.css": {
+      "bytes": 28902,
+      "sha256": "20caa22c79cacfb493ed79c3777fdec97ffa2f98046cedce685e589f8444899d"
+    },
+    "./assets/fonts/LICENSE-IBM-Plex-Mono.txt": {
+      "bytes": 5299,
+      "sha256": "23b0a9d0c6d3f140a0b77e483c5cfa6bba574325ef5cb189ed9f2fec4884533f"
+    },
+    "./assets/fonts/LICENSE-IBM-Plex-Sans.txt": {
+      "bytes": 4429,
+      "sha256": "d0283623ef57e722fd0eb688a8041589670c608ab780cd3612d06ba6f153d3fd"
+    },
+    "./assets/fonts/LICENSE-Source-Serif-4.txt": {
+      "bytes": 4314,
+      "sha256": "18aabf190848725e2576eefb5c29ba06aac1029d02132252a7f312eac2e50cf3"
+    },
+    "./assets/fonts/ibm-plex-mono-latin-400-normal.woff2": {
+      "bytes": 14708,
+      "sha256": "08949f728dc52d528e69b1667d15c89a5686a4ee9a296ff90983985f99c380f7"
+    },
+    "./assets/fonts/ibm-plex-mono-latin-600-normal.woff2": {
+      "bytes": 15620,
+      "sha256": "0d1f0b8d0722224e32e9f28261bdc86c79115be73444ae5eceb73976a1bcdf83"
+    },
+    "./assets/fonts/ibm-plex-sans-latin-wght-italic.woff2": {
+      "bytes": 50184,
+      "sha256": "4363757d2695c7633f98472855849f7c30528eba869d7968ee35b58c87cf14c1"
+    },
+    "./assets/fonts/ibm-plex-sans-latin-wght-normal.woff2": {
+      "bytes": 45712,
+      "sha256": "e2291e842cf5af167122a22881a740c7f2dda7716f1e8cd76680264f4a859470"
+    },
+    "./assets/fonts/source-serif-4-latin-wght-italic.woff2": {
+      "bytes": 51576,
+      "sha256": "b4f56ddc9873487f1c9a3ad5bbce31982fe89b951f57e4604f62b4c8a540fb19"
+    },
+    "./assets/fonts/source-serif-4-latin-wght-normal.woff2": {
+      "bytes": 50936,
+      "sha256": "382475f38242c52d42a3e5ff8dc69b5d73f10d0d21e4550b5fe232984688779a"
     },
     "./assets/linear-workspace.css": {
       "bytes": 19977,
-      "sha256": "dbf5c8ad0ff6fdbcfba80a30b6d6ee5ef2776d72a20a59bf1669d38daf63a264"
+      "sha256": "7df7b294560f5050fbbecff4b4a401a7bca7d54510ff90d6ae380c3eca085095"
     },
     "./assets/linear-workspace.mjs": {
-      "bytes": 31744,
-      "sha256": "5ecb354c03ed2796a6e2c44e90ecd3ac28cd5c4243eba8f7adfbb638a2056d89"
+      "bytes": 31729,
+      "sha256": "5c4dd2def582bcc4f0149a4a6cc5c765297540f7354be085b2c0599bc5a9256c"
     },
     "./assets/pdf-engine.mjs": {
       "bytes": 46498,
@@ -252,7 +299,7 @@
     },
     "./assets/workbench-core.mjs": {
       "bytes": 7635,
-      "sha256": "f45823b562473696d53cbefcc57d5f0a673bb7f0b95a46f5c11848e5ce4d6848"
+      "sha256": "162855ef2a9f6587df774f4bb1930c428394273d467713c596ee498cc3566095"
     },
     "./assets/workbench.css": {
       "bytes": 29601,
@@ -260,19 +307,19 @@
     },
     "./assets/workbench.js": {
       "bytes": 159336,
-      "sha256": "5849550be9efb68a3f494487e32cecf2d9de54e0ca93623eed33904d682c5940"
+      "sha256": "ab9c50b1794f909cfb9f342890a561d2d6ad8c67e254d2e5e9a19f7d46abd6e1"
     },
     "./index.html": {
-      "bytes": 437133,
-      "sha256": "5ea48aa98b8b2f646e220e69fe270578295249ff769e3f6a2ab34cf18fac241b"
+      "bytes": 437218,
+      "sha256": "817fe84e7ceb256b7fed18e8a1c0da69361602ee89bbec09f3d98ed230526317"
     },
     "./manifest.webmanifest": {
-      "bytes": 355,
-      "sha256": "80747a0b06830d458013a12943f1db01b7ac572109fbcabc3b46faeaab7858be"
+      "bytes": 367,
+      "sha256": "bb04e969c919826f4ae710c349522eabd87830cde43e98617bbec52b13778382"
     },
     "./service-worker.js": {
-      "bytes": 13480,
-      "sha256": "8d8444f4b17554757157ad69c662fb5194df64719fb06f936ea974422a271838"
+      "bytes": 13862,
+      "sha256": "6de0ac4039c1fb65c79434476ef9aede4e212b4abc42afe6b77522472b03a8e0"
     },
     "./vendor/dompurify/LICENSE": {
       "bytes": 11358,
