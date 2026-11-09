@@ -49,7 +49,7 @@ async function openShell(page) {
   });
   await page.goto('/');
   await page.waitForFunction(() => (
-    window.CommentMasterWorkbench?.version === '7.2.1'
+    window.CommentMasterWorkbench?.version === '7.2.2'
     && typeof window.CommentMasterWord?.openFile === 'function'
   ));
   await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
@@ -274,7 +274,7 @@ test.describe('guided Word actions', () => {
     await expect(page.locator('#selected-files')).toContainText(fixtures.originalDocx.name);
     await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
     for (const asset of ['workbench.css', 'workbench.js', 'workbench-core.mjs']) {
-      expect(requests.some((request) => request.path.endsWith(`/${asset}`) && request.version === '7.2.1')).toBe(true);
+      expect(requests.some((request) => request.path.endsWith(`/${asset}`) && request.version === '7.2.2')).toBe(true);
     }
   });
 
@@ -294,37 +294,120 @@ test.describe('guided Word actions', () => {
     await expect(page.locator('#home-task-feedback')).toContainText('comments report');
   });
 
-  test('simple reviewer rename edits both comment and redline authors in a new DOCX', async ({ page }) => {
+
+  test('name edits stay in memory through comment export, more edits, and a final Word download', async ({ page }) => {
     await openShell(page);
     await page.locator('#home-word-file-input').setInputFiles(fixtures.originalDocx);
+    await expect(page.locator('#home-working-copy')).toBeHidden();
+    const downloads = [];
+    page.on('download', (download) => downloads.push(download.suggestedFilename()));
+
     await page.locator('[data-task="rename"]').click();
     await expect(page.locator('#home-rename-panel')).toBeVisible();
-    await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
     await page.locator('#home-rename-from').selectOption({ label: 'Browser QA' });
-    await page.locator('#home-rename-to').fill('New Reviewer');
-    const download = await downloadFrom(page, '#home-rename-download');
-    expect(download.filename).toMatch(/\(Edit [0-9.]+\)\.docx$/);
-    const zip = await JSZip.loadAsync(download.bytes, { checkCRC32: true });
+    await page.locator('#home-rename-to').fill('First Reviewer');
+    await page.locator('#home-rename-apply').click();
+
+    await expect(page.locator('#home-word-actions')).toBeVisible();
+    await expect(page.locator('#home-working-copy')).toBeVisible();
+    await expect(page.locator('#home-working-copy-status')).toContainText('not yet in a downloaded Word document');
+    await expect(page.locator('#home-task-feedback')).toContainText('You can make more changes');
+    expect(downloads).toEqual([]);
+    expect(await page.evaluate(() => window.CommentMasterWord.snapshot().dirty)).toBe(true);
+
+    const report = await downloadFrom(page, '[data-task="export"]');
+    expect(report.filename).toMatch(/\(Comments [0-9.]+\)\.docx$/);
+    const reportZip = await JSZip.loadAsync(report.bytes, { checkCRC32: true });
+    const reportXml = await reportZip.file('word/document.xml').async('text');
+    expect(reportXml).toContain('First Reviewer');
+    expect(reportXml).toContain('Generated browser fixture comment');
+    expect(reportXml).not.toContain('Browser QA');
+    expect(await page.evaluate(() => window.CommentMasterWord.snapshot().dirty)).toBe(true);
+    await expect(page.locator('#home-working-copy')).toBeVisible();
+
+    await page.locator('[data-task="rename"]').click();
+    await page.locator('#home-rename-from').selectOption({ label: 'First Reviewer' });
+    await page.locator('#home-rename-to').fill('Final Reviewer');
+    await page.locator('#home-rename-apply').click();
+    expect(downloads).toHaveLength(1);
+    await expect(page.locator('#home-word-actions')).toBeVisible();
+
+    const saved = await downloadFrom(page, '#home-save-word');
+    expect(saved.filename).toMatch(/\(Edit [0-9.]+\)\.docx$/);
+    const zip = await JSZip.loadAsync(saved.bytes, { checkCRC32: true });
     const comments = await zip.file('word/comments.xml').async('text');
     const document = await zip.file('word/document.xml').async('text');
-    expect(comments).toContain('w:author="New Reviewer"');
-    expect(document).toContain('w:author="New Reviewer"');
+    expect(comments).toContain('w:author="Final Reviewer"');
+    expect(document).toContain('w:author="Final Reviewer"');
     expect(comments).not.toContain('w:author="Browser QA"');
     expect(document).not.toContain('w:author="Browser QA"');
-    await expect(page.locator('#home-task-feedback')).toContainText('Downloaded an updated Word file');
-    await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
+    expect(comments).not.toContain('w:author="First Reviewer"');
+    expect(document).not.toContain('w:author="First Reviewer"');
+    expect(await page.evaluate(() => window.CommentMasterWord.snapshot().dirty)).toBe(false);
+    await expect(page.locator('#home-working-copy')).toBeVisible();
+    await expect(page.locator('#home-working-copy-status')).toContainText('last download');
+
+    const secondReport = await downloadFrom(page, '[data-task="export"]');
+    const secondZip = await JSZip.loadAsync(secondReport.bytes, { checkCRC32: true });
+    const secondXml = await secondZip.file('word/document.xml').async('text');
+    expect(secondXml).toContain('Final Reviewer');
+    expect(secondXml).not.toContain('First Reviewer');
+    await expect(page.locator('#home-word-actions')).toBeVisible();
   });
 
-  test('reviewer rename requires a replacement name and can return to choices', async ({ page }) => {
+  test('reviewer rename requires a new name and Back does not discard changes', async ({ page }) => {
     await openShell(page);
     await page.locator('#home-word-file-input').setInputFiles(fixtures.originalDocx);
     await page.locator('[data-task="rename"]').click();
-    await page.locator('#home-rename-download').click();
+    await page.locator('#home-rename-apply').click();
     await expect(page.locator('#home-task-feedback')).toContainText('enter the new name');
+    await page.locator('#home-rename-to').fill('Working Reviewer');
+    await page.locator('#home-rename-apply').click();
+    await page.locator('[data-task="rename"]').click();
     await page.locator('[data-wb-action="home-rename-back"]').click();
     await expect(page.locator('#home-word-actions')).toBeVisible();
     await expect(page.locator('#home-rename-panel')).toBeHidden();
+    await expect(page.locator('#home-working-copy')).toBeVisible();
+    expect(await page.evaluate(() => window.CommentMasterWord.snapshot().items.every((item) => item.author === 'Working Reviewer'))).toBe(true);
   });
+
+  test('returning to Home after entering the Word editor preserves the same working copy', async ({ page }) => {
+    await openShell(page);
+    await page.locator('#home-word-file-input').setInputFiles(fixtures.originalDocx);
+    await page.locator('[data-task="rename"]').click();
+    await page.locator('#home-rename-to').fill('Still Here Reviewer');
+    await page.locator('#home-rename-apply').click();
+    await page.locator('[data-task="review"]').click();
+    await expect(page.locator('body')).toHaveAttribute('data-route', 'word');
+    await page.locator('#nav-toggle').click();
+    await page.locator('#global-navigation').getByRole('button', { name: 'Home', exact: true }).click();
+    await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
+    await expect(page.locator('#home-working-copy')).toBeVisible();
+    const report = await downloadFrom(page, '[data-task="export"]');
+    const zip = await JSZip.loadAsync(report.bytes, { checkCRC32: true });
+    expect(await zip.file('word/document.xml').async('text')).toContain('Still Here Reviewer');
+  });
+
+  test('choosing another file or clearing the selection warns before abandoning an unsaved working copy', async ({ page }) => {
+    await openShell(page);
+    await page.locator('#home-word-file-input').setInputFiles(fixtures.originalDocx);
+    await page.locator('[data-task="rename"]').click();
+    await page.locator('#home-rename-to').fill('Keep My Work');
+    await page.locator('#home-rename-apply').click();
+    const warnings = [];
+    page.on('dialog', async (dialog) => {
+      warnings.push(dialog.message());
+      await dialog.dismiss();
+    });
+    await page.locator('#home-word-file-input').setInputFiles(fixtures.revisedDocx);
+    await expect(page.locator('#selected-files')).toContainText(fixtures.originalDocx.name);
+    await page.locator('[data-wb-action="clear-selection"]').click();
+    await expect(page.locator('#selected-files')).toContainText(fixtures.originalDocx.name);
+    expect(warnings).toHaveLength(2);
+    expect(warnings[0]).toContain('not been downloaded');
+    expect(await page.evaluate(() => window.CommentMasterWord.snapshot().items[0].author)).toBe('Keep My Work');
+  });
+
 });
 
 test.describe('mobile home', () => {
@@ -720,7 +803,7 @@ test.describe('privacy and offline behavior', () => {
     if (!await page.evaluate(() => Boolean(navigator.serviceWorker.controller))) {
       await page.reload();
       await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
-      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.2.1');
+      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.2.2');
     }
 
     const cacheReport = await page.evaluate(async () => {
@@ -751,7 +834,7 @@ test.describe('privacy and offline behavior', () => {
     await context.setOffline(true);
     try {
       await page.reload({ waitUntil: 'domcontentloaded' });
-      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.2.1');
+      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.2.2');
       await expect(page.locator('#home')).toBeVisible();
       await expect(page.getByRole('heading', { name: 'What do you want to do with your Word document?' })).toBeVisible();
     } finally {
