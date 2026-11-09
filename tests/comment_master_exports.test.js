@@ -33,7 +33,7 @@ function testSyntaxAndUiContract() {
 }
 
 function loadApplicationHelpers() {
-  let application = scriptContaining("const VERSION = '7.1.1'");
+  let application = scriptContaining("const VERSION = '7.2.0'");
   const marker = "window.addEventListener('DOMContentLoaded', init, { once: true });";
   assert.ok(application.includes(marker), 'Application test hook marker is missing');
   application = application.replace(marker, `
