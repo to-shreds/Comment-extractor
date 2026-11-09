@@ -716,7 +716,7 @@ async function stageHomeFiles(files, options = {}) {
   if (!list.length) return;
   if (options.stayOnHome) {
     switchRoute('home', false);
-    $('home-selection-title').focus({ preventScroll: true });
+    $('home-selection-title').focus();
     return;
   }
   if (list.length === 1) {
