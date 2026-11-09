@@ -1,5 +1,13 @@
 # Changelog
 
+## 7.3.1 - 2026-11-09
+
+- Gave Comment Master a distinct editorial-workbench appearance: paper-toned surfaces, petrol controls, a copper annotation accent, fine dividers, restrained corner radii, and no decorative dashboard gradients.
+- Introduced locally bundled Source Serif 4, IBM Plex Sans, and IBM Plex Mono fonts, with pinned upstream checksums, license notices, and offline caching.
+- Unified the design of the Word workflow sidebar, collapsible sections, review cards, summary dialog, comparison, PDF workspace, and other tools.
+- Kept the familiar red/green meaning of tracked changes, consistent keyboard focus, two final download actions, existing document behavior, and privacy protections.
+- Shortened visible headings and replaced the ambiguous advanced labels Ghost Writer and Forensics with Tracked replacement and Document structure.
+
 ## 7.3.0 - 2026-11-09
 
 - Replaced the task chooser with one linear workspace containing collapsible editing sections and a left-anchored tools/progress sidebar.

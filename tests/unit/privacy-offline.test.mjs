@@ -38,7 +38,7 @@ test('a waiting older service worker cannot intercept the new Word UI assets', a
     readFile(path.join(root, 'src/workbench.js'), 'utf8'),
     readFile(path.join(root, 'src/service-worker.js'), 'utf8')
   ]);
-  const version = '7.3.0';
+  const version = '7.3.1';
   for (const [name, tag] of [
     ['workbench.css', 'href'],
     ['workbench.js', 'src']
@@ -65,7 +65,7 @@ test('service worker caches only exact application assets', async () => {
 
 test('built manifest resolves every exact offline asset and contains no source archive', async () => {
   const manifest = JSON.parse(await readFile(path.join(root, 'dist/asset-manifest.json'), 'utf8'));
-  assert.equal(manifest.version, '7.3.0');
+  assert.equal(manifest.version, '7.3.1');
   assert.ok(manifest.buildId.length >= 20);
   assert.equal(manifest.files['./asset-manifest.json'], undefined, 'the manifest cannot contain a stale or self-referential digest');
   for (const asset of [...manifest.coreAssets, ...Object.values(manifest.optionalAssets).flat()]) {

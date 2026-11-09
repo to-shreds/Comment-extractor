@@ -1,5 +1,5 @@
-const VERSION = "7.3.0";
-const BUILD_ID = "df44ef3b1ebc6acf5d1c35d3";
+const VERSION = "7.3.1";
+const BUILD_ID = "373d00a00a7d9ffb85226dd4";
 const CACHE_PREFIX = 'comment-master-';
 const CORE_CACHE = `${CACHE_PREFIX}core-${VERSION}-${BUILD_ID}`;
 const OPTIONAL_CACHE = `${CACHE_PREFIX}optional-${VERSION}-${BUILD_ID}`;
@@ -10,6 +10,13 @@ const CORE_ASSETS = Object.freeze([
   "./assets/workbench.css",
   "./assets/workbench.js",
   "./assets/linear-workspace.css",
+  "./assets/editorial-theme.css",
+  "./assets/fonts/ibm-plex-mono-latin-400-normal.woff2",
+  "./assets/fonts/ibm-plex-mono-latin-600-normal.woff2",
+  "./assets/fonts/ibm-plex-sans-latin-wght-italic.woff2",
+  "./assets/fonts/ibm-plex-sans-latin-wght-normal.woff2",
+  "./assets/fonts/source-serif-4-latin-wght-italic.woff2",
+  "./assets/fonts/source-serif-4-latin-wght-normal.woff2",
   "./assets/linear-workspace.mjs",
   "./assets/review-summary.mjs",
   "./assets/workbench-core.mjs",

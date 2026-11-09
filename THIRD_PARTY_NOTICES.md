@@ -20,6 +20,19 @@ The committed Pages runtime includes this notice at `THIRD_PARTY_NOTICES.md` and
 
 The Tesseract minified files refer to generated license notices. Those notices are deployed beside the files as `vendor/tesseract/tesseract.min.js.LICENSE.txt` and `vendor/tesseract/worker.min.js.LICENSE.txt`.
 
+
+## Locally bundled interface typefaces
+
+The editorial interface bundles six Latin-subset WOFF2 files under `assets/fonts/`. All fonts are served from Comment Master's own origin and included in its offline asset inventory. They are sourced from the pinned open-source [Fontsource font-files repository](https://github.com/fontsource/font-files/tree/5a72889057f592bb0659629e38337359f94d53b2); the development bootstrap verifies each file's upstream Git blob hash before writing it.
+
+| Typeface | License | Deployed license |
+| --- | --- | --- |
+| IBM Plex Sans (upright and italic variable weight) | SIL Open Font License 1.1 | `assets/fonts/LICENSE-IBM-Plex-Sans.txt` |
+| Source Serif 4 (upright and italic variable weight) | SIL Open Font License 1.1 | `assets/fonts/LICENSE-Source-Serif-4.txt` |
+| IBM Plex Mono (regular and semibold) | SIL Open Font License 1.1 | `assets/fonts/LICENSE-IBM-Plex-Mono.txt` |
+
+No font request is sent to Google Fonts, Fontsource, or another outside host while using the application.
+
 ## PDF.js support assets
 
 Comment Master distributes the following pinned assets from the PDF.js 6.3.289 package so PDFs render entirely from the same origin, including scanned pages encoded with JPEG 2000 or JBIG2. The complete upstream terms are deployed beside the assets.

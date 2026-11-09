@@ -5,7 +5,10 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f5f7fb",
-  "theme_color": "#243f77",
-  "categories": ["productivity", "utilities"]
+  "background_color": "#f4f1ea",
+  "theme_color": "#284c4e",
+  "categories": [
+    "productivity",
+    "utilities"
+  ]
 }
