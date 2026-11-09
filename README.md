@@ -1,8 +1,10 @@
 # Comment Master
 
-Comment Master v7.2.0 is a private, browser-local document workbench with a beginner-friendly Word home page, PDF work, document comparison, conversion, binders, cleanup, inspection, and batch processing.
+Comment Master v7.2.1 is a private, browser-local document workbench with a beginner-friendly Word home page, PDF work, document comparison, conversion, binders, cleanup, inspection, and batch processing.
 
 The application is a static site. It does not require an installer, a local server, a browser extension, a cloud document-processing service, or a third-party account. Documents are processed in the browser and are not uploaded by Comment Master.
+
+Since v7.2.1, the main Word upload uses the browser's standard file picker. Version-specific URLs for the app's CSS and JavaScript prevent a waiting older service worker from serving incompatible cached code alongside a newer Home page. The current service worker also serves those versioned URLs from its verified offline cache.
 
 ## Interface and workflow
 
