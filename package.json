@@ -1,9 +1,10 @@
 {
   "name": "comment-master",
   "private": true,
-  "version": "7.3.0",
+  "version": "7.3.1",
   "scripts": {
     "build": "node tools/build.mjs",
+    "fonts:install": "node tools/install-editorial-fonts.mjs",
     "build:pages": "npm run build && node tools/sync-pages.mjs",
     "test:legacy": "node tests/comment_master_exports.test.js && node tests/comment_master_v6_3.test.js",
     "test:unit": "node --test \"tests/unit/!(privacy-offline).test.mjs\"",

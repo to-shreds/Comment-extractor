@@ -49,6 +49,8 @@ await mkdir(path.join(dist, 'assets'), { recursive: true });
 await copy('index.html', 'index.html');
 await copy('src/workbench.css', 'assets/workbench.css');
 await copy('src/linear-workspace.css', 'assets/linear-workspace.css');
+await copy('src/editorial-theme.css', 'assets/editorial-theme.css');
+await copyTree('src/fonts', 'assets/fonts', (relative) => relative.endsWith('.woff2') || relative.startsWith('LICENSE-'));
 await copy('src/linear-workspace.mjs', 'assets/linear-workspace.mjs');
 await copy('src/review-summary.mjs', 'assets/review-summary.mjs');
 await copy('src/workbench.js', 'assets/workbench.js');
@@ -116,9 +118,15 @@ for (const [directory, extensions] of [
     .map((relative) => `./vendor/pdfjs/${directory}/${relative}`));
 }
 
+const editorialFontAssets = (await listFiles(path.join(dist, 'assets/fonts')))
+  .filter((relative) => relative.endsWith('.woff2'))
+  .map((relative) => `./assets/fonts/${relative}`);
+if (editorialFontAssets.length !== 6) throw new Error('Expected six bundled editorial font files. Run npm run fonts:install first.');
+
 const coreAssets = [
   './index.html', './manifest.webmanifest', './asset-manifest.json', './assets/workbench.css', './assets/workbench.js',
-  './assets/linear-workspace.css', './assets/linear-workspace.mjs', './assets/review-summary.mjs',
+  './assets/linear-workspace.css', './assets/editorial-theme.css', ...editorialFontAssets,
+  './assets/linear-workspace.mjs', './assets/review-summary.mjs',
   './assets/workbench-core.mjs', './assets/pdf-engine.mjs', './vendor/pdfjs/pdf.mjs',
   './vendor/pdfjs/pdf.worker.mjs', './vendor/pdf-lib/pdf-lib.esm.min.js',
   './vendor/marked/marked.esm.js', './vendor/dompurify/purify.es.mjs',

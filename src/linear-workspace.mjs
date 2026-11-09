@@ -1,4 +1,4 @@
-import { SUMMARY_COLUMNS, buildReviewSummary, summaryRows } from './review-summary.mjs?v=7.3.0';
+import { SUMMARY_COLUMNS, buildReviewSummary, summaryRows } from './review-summary.mjs?v=7.3.1';
 
 const $ = (id) => document.getElementById(id);
 const esc = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -34,7 +34,7 @@ function template() {
       <div class="linear-sidebar-footer"><button type="button" data-wb-action="privacy">Privacy and offline use</button><button type="button" data-linear-action="clear">Clear local workspace</button></div></div>
     </aside>
     <div class="linear-content">
-      <header class="linear-heading"><div><p class="linear-eyebrow">WORD DOCUMENT WORKSPACE</p><h2>Your document, step by step.</h2><p>Open any section you need. Apply changes, then download when you are ready.</p></div><span class="linear-local"><span aria-hidden="true"></span>Processed on this device</span></header>
+      <header class="linear-heading"><div><p class="linear-eyebrow">DOCUMENT WORKSPACE</p><h2>Work on your document.</h2><p>Open a Word file, use the sections you need, and download your results.</p></div><span class="linear-local"><span aria-hidden="true"></span>Processed on this device</span></header>
       <div id="linear-document-bar" class="linear-document-bar" hidden><div><strong id="linear-filename"></strong><span id="linear-document-counts"></span></div><div class="linear-document-controls"><span id="linear-save-status" role="status" aria-live="polite"></span><button type="button" id="linear-undo" class="btn btn-light" data-linear-action="undo" disabled>Undo last edit</button></div></div>
       ${section('file', `<div id="linear-file-drop" class="linear-file-drop"><div class="linear-file-symbol" aria-hidden="true">W</div><div><h3>Choose a Word document</h3><p>Use a .docx file or drop it here. Your original file will not be overwritten.</p></div><button id="linear-upload" class="btn btn-primary" type="button" data-wb-action="choose-home-word">Choose Word document</button></div><p id="linear-file-ready" hidden></p>${feedback('file')}<div id="linear-multiple-files" hidden><p>Multiple files selected. Choose a tool below.</p><div id="linear-file-chips"></div><div id="linear-file-suggestions"></div></div>`)}
       ${section('names', `<div class="linear-form-grid"><label>Current name<select id="linear-name-from"></select></label><label>New name<input id="linear-name-to" maxlength="255" autocomplete="off" placeholder="Enter the replacement name"></label>${scope('linear-name-scope')}</div><p id="linear-name-count" class="linear-help"></p><button class="btn btn-primary" type="button" data-linear-action="names">Apply name change</button>${feedback('names')}`)}
@@ -228,6 +228,6 @@ export function initLinearWorkspace(api) {
   // Existing error handling remains authoritative. Surface its message near the file picker.
   new MutationObserver(()=>{if(!$('error-log').hidden&&currentRoute()==='home'){const key=document.activeElement?.closest('[data-linear-section]')?.dataset.linearSection||'file';status(key,$('error-log').textContent,true);$(`linear-section-${key}`).open=true;}}).observe($('error-log'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
   new MutationObserver(()=>{const message=$('status').textContent;if(currentRoute()==='home'&&message&&info()){const key=document.activeElement?.closest('[data-linear-section]')?.dataset.linearSection;if(key)status(key,message,$('status').classList.contains('bad'));}}).observe($('status'),{childList:true,subtree:true});
-  window.CommentMasterLinear=Object.freeze({refresh,choose,summaryOptions,version:'7.3.0'});
+  window.CommentMasterLinear=Object.freeze({refresh,choose,summaryOptions,version:'7.3.1'});
   refresh();updateTimeFields();
 }
