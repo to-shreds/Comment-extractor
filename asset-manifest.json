@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "version": "7.3.1",
-  "buildId": "373d00a00a7d9ffb85226dd4",
+  "version": "7.3.2",
+  "buildId": "45ae1f6a10691ccfc91ada24",
   "coreAssets": [
     "./index.html",
     "./manifest.webmanifest",
@@ -243,7 +243,7 @@
     },
     "./assets/editorial-theme.css": {
       "bytes": 28902,
-      "sha256": "20caa22c79cacfb493ed79c3777fdec97ffa2f98046cedce685e589f8444899d"
+      "sha256": "8ee5bae8c0b9f9e0c8448b91fd4680a201e3a23ae00a5b80238e1c67dfa60948"
     },
     "./assets/fonts/LICENSE-IBM-Plex-Mono.txt": {
       "bytes": 5299,
@@ -282,12 +282,12 @@
       "sha256": "382475f38242c52d42a3e5ff8dc69b5d73f10d0d21e4550b5fe232984688779a"
     },
     "./assets/linear-workspace.css": {
-      "bytes": 19977,
-      "sha256": "7df7b294560f5050fbbecff4b4a401a7bca7d54510ff90d6ae380c3eca085095"
+      "bytes": 28899,
+      "sha256": "020cc6580192ee1d185a9d1f8b268055f3245643494d3b2187efe83c4bf21e6a"
     },
     "./assets/linear-workspace.mjs": {
-      "bytes": 31729,
-      "sha256": "5c4dd2def582bcc4f0149a4a6cc5c765297540f7354be085b2c0599bc5a9256c"
+      "bytes": 32937,
+      "sha256": "6125659cc0327fc8654ecd9c4bcb35bdc8e0086a64adc2ead8246853b3b65c6b"
     },
     "./assets/pdf-engine.mjs": {
       "bytes": 46498,
@@ -299,7 +299,7 @@
     },
     "./assets/workbench-core.mjs": {
       "bytes": 7635,
-      "sha256": "162855ef2a9f6587df774f4bb1930c428394273d467713c596ee498cc3566095"
+      "sha256": "8629aab0e6912e492dc629eb2c674495d26cb6199365e2319166e16a10b39331"
     },
     "./assets/workbench.css": {
       "bytes": 29601,
@@ -307,11 +307,11 @@
     },
     "./assets/workbench.js": {
       "bytes": 159336,
-      "sha256": "ab9c50b1794f909cfb9f342890a561d2d6ad8c67e254d2e5e9a19f7d46abd6e1"
+      "sha256": "92fd8ec5e31294132ed19660dea5a97229e83c2a8500548a4583e897647406b0"
     },
     "./index.html": {
       "bytes": 437218,
-      "sha256": "817fe84e7ceb256b7fed18e8a1c0da69361602ee89bbec09f3d98ed230526317"
+      "sha256": "52921c01a2882e0ac7c1fe3b31980c754b124c5015b14ac6e42f0c4239bb5619"
     },
     "./manifest.webmanifest": {
       "bytes": 367,
@@ -319,7 +319,7 @@
     },
     "./service-worker.js": {
       "bytes": 13862,
-      "sha256": "6de0ac4039c1fb65c79434476ef9aede4e212b4abc42afe6b77522472b03a8e0"
+      "sha256": "027fc2cbd83f48aa6d2a7514650ef2d5ac72242e6cd4b76871236ab23d757317"
     },
     "./vendor/dompurify/LICENSE": {
       "bytes": 11358,

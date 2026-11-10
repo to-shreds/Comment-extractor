@@ -323,7 +323,7 @@ body[data-route="home"] .app-shell { width: min(1580px, 100%); max-width: none; 
 .linear-other-tools button:hover { color: var(--cm-petrol-dark); border-left-color: var(--cm-copper); text-decoration: none; }
 .linear-sidebar-footer { border-color: var(--cm-line); }
 .linear-sidebar-footer button { color: var(--cm-muted); font-size: 12px; }
-.linear-content { max-width: 1080px; padding-top: 42px; }
+.linear-content { max-width: 1080px; padding-top: 22px; }
 .linear-heading { align-items: flex-start; margin-bottom: 30px; }
 .linear-heading h2 {
   margin: 0 0 8px;
