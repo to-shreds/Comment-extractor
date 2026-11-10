@@ -1,6 +1,6 @@
 # Comment Master
 
-Comment Master v7.3.1 is a private, browser-local document workbench with a beginner-friendly Word home page, PDF work, document comparison, conversion, binders, cleanup, inspection, and batch processing.
+Comment Master v7.3.2 is a private, browser-local document workbench with a beginner-friendly Word home page, PDF work, document comparison, conversion, binders, cleanup, inspection, and batch processing.
 
 The application is a static site. It does not require an installer, a local server, a browser extension, a cloud document-processing service, or a third-party account. Documents are processed in the browser and are not uploaded by Comment Master.
 
@@ -8,9 +8,11 @@ Since v7.2.1, the main Word upload uses the browser's standard file picker. Vers
 
 ## Interface and workflow
 
+The workspace begins directly with the document sections. The redundant introductory heading, instructions, and repeated local-processing label have been removed; the existing privacy control remains in the application header.
+
 Home is a single linear document workspace. Load a Word document, open the sections you need, make any number of changes, and download at the bottom. The left sidebar links to every main section and shows whether the current document is loaded, a section has actually been applied, an inspection has been viewed, and an export is current or predates later edits. Opening a section does not falsely mark it complete. Undo restores the relevant section status.
 
-The collapsible sections are Load document, Change names, Edit comments and redlines, Update dates and times, Remove metadata, Find and replace, Create redlines, Inspect document, and Compare and combine. The original review editor remains underneath a card-based presentation with filters, selection, names, dates, comment editing, and tracked-text editing. PDF and other document tools, including clean copy, conversion, batch processing, and spreadsheet/clipboard exports, remain accessible from the sidebar.
+The collapsible sections are Load document, Change names, Edit comments and redlines, Update dates and times, Remove metadata, Find and replace, Create redlines, Inspect document, and Compare and combine. The review editor opens in a sortable **table view** with columns for page, type, reviewed language or comment, reviewer name, and date. An accessible **List view** toggle displays the same rows as compact cards. Both views use the same selection, filters, pagination, and inline editing engine; switching views does not discard edits. On narrow screens the table scrolls horizontally inside its section, without widening the page. PDF and other document tools, including clean copy, conversion, batch processing, and spreadsheet/clipboard exports, remain accessible from the sidebar.
 
 The final actions are **Download updated document** and **Download comment/redline summary**. Summary options default to comments and redlines, with all eight columns selected: Name, Date and time, Original text, Action, Redlined language, Comment text, Page, and Document part. **Include original document after the summary** is off by default.
 
@@ -18,7 +20,7 @@ The optional appendix uses the exact current working package from which the summ
 
 No edit forces a download. Original files are never overwritten. Document state remains in memory in the current tab, not in remote storage.
 
-## v7.3.1 publication state
+## Previous release: v7.3.1
 
 Comment Master v7.3.1 is published at https://to-shreds.github.io/Comment-extractor/ with the editorial-workbench redesign. Its production QA [passed](https://github.com/to-shreds/Comment-extractor/actions/runs/42703810452) with both legacy regression suites, 57 unit tests, 5 privacy/offline tests, and all 63 Chromium browser tests. The exact Pages runtime was synchronized and verified with build ID `373d00a00a7d9ffb85226dd4`. [GitHub Pages deployment](https://github.com/to-shreds/Comment-extractor/actions/runs/42704301246) for release commit `295482e531a2c013135a66421de26174698f33ef` succeeded.
 

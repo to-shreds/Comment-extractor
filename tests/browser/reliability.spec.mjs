@@ -298,7 +298,7 @@ test('the More menu closes when the user clicks outside it', async ({ page }) =>
   await openShell(page);
   await page.locator('#nav-toggle').click();
   await expect(page.locator('#global-navigation')).toBeVisible();
-  await page.locator('.linear-heading h2').click();
+  await page.locator('#linear-section-file > summary').click();
   await expect(page.locator('#global-navigation')).toBeHidden();
   await expect(page.locator('#nav-toggle')).toHaveAttribute('aria-expanded', 'false');
 });

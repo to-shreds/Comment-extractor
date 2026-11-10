@@ -7,7 +7,7 @@ let fixture;
 test.beforeAll(async () => { fixture = await createReviewDocx(); });
 async function shell(page) {
   await page.goto('/');
-  await page.waitForFunction(() => window.CommentMasterLinear?.version === '7.3.1');
+  await page.waitForFunction(() => window.CommentMasterLinear?.version === '7.3.2');
 }
 async function jump(page, key) {
   const toggle = page.locator('#linear-sidebar-toggle');
@@ -52,6 +52,76 @@ test('linear landing contains nine optional sections, a left tool index, and exa
   await expect(page.locator('#linear-section-file')).toHaveAttribute('open', '');
   await expect(page.locator('#linear-section-names')).not.toHaveAttribute('open');
   await expect(page.locator('#linear-legacy-home')).toBeHidden();
+});
+
+
+test('the redundant workspace heading and repeated privacy notice are absent', async ({ page }) => {
+  await shell(page);
+  await expect(page.locator('.linear-heading')).toHaveCount(0);
+  const text = await page.locator('#home .linear-content').innerText();
+  expect(text).not.toContain('Work on your document.');
+  expect(text).not.toContain('Open a Word file, use the sections you need');
+  expect(text).not.toContain('Processed on this device');
+  await expect(page.locator('#linear-section-file')).toBeVisible();
+});
+
+test('review starts as an editable, sortable table and can switch to a compact list', async ({ page }) => {
+  await shell(page); await upload(page); await jump(page, 'review');
+  const section = page.locator('#linear-section-review');
+  await expect(section).toHaveAttribute('data-review-layout', 'table');
+  await expect(page.getByRole('button', { name: 'Table view', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'List view', exact: true })).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#data-head th[data-sort="author"]')).toBeVisible();
+  expect(await page.locator('#data-table').evaluate((e) => getComputedStyle(e).display)).toBe('table');
+  expect(await page.locator('#data-body tr[data-uid]').first().evaluate((e) => getComputedStyle(e).display)).toBe('table-row');
+  await page.locator('#data-head th[data-sort="author"]').click();
+  await expect(page.locator('#data-head th[data-sort="author"]')).toHaveAttribute('aria-sort', 'ascending');
+  await page.locator('#data-head th[data-sort="author"]').click();
+  await expect(page.locator('#data-head th[data-sort="author"]')).toHaveAttribute('aria-sort', 'descending');
+
+  await page.getByRole('button', { name: 'List view', exact: true }).click();
+  await expect(section).toHaveAttribute('data-review-layout', 'list');
+  await expect(page.getByRole('button', { name: 'List view', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.locator('#data-body tr[data-uid]').first().evaluate((e) => getComputedStyle(e).display)).toBe('grid');
+  const spacing = await page.locator('#data-body tr[data-uid]').first().evaluate((row) => {
+    const check = row.querySelector('.check-cell input').getBoundingClientRect();
+    const badge = row.querySelector('.type-cell .badge').getBoundingClientRect();
+    return badge.left - check.right;
+  });
+  expect(spacing).toBeGreaterThanOrEqual(0);
+  expect(spacing).toBeLessThanOrEqual(18);
+
+  const comment = page.locator('#data-body tr[data-uid]').filter({ has: page.locator('[aria-label="Comment text for 0"]') });
+  await comment.locator('[data-field="author"]').fill('Table Tester');
+  await page.locator('#linear-review-search').click();
+  await expect(page.locator('[data-nav-status="review"]')).toHaveText('Applied');
+  await page.getByRole('button', { name: 'Table view', exact: true }).click();
+  await expect(section).toHaveAttribute('data-review-layout', 'table');
+  expect(await page.locator('#data-body tr[data-uid]').first().evaluate((e) => getComputedStyle(e).display)).toBe('table-row');
+  expect(await page.evaluate(() => window.CommentMasterWord.snapshot().items.find((item) => item.type === 'com').author)).toBe('Table Tester');
+
+  await page.locator('#linear-review-search').fill('Table Tester');
+  await expect(page.locator('#data-body tr[data-uid]')).toHaveCount(1);
+  await expect(page.locator('#review-count')).toContainText('1 shown');
+});
+
+test('review table stays within mobile page width and is horizontally scrollable', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await shell(page); await upload(page); await jump(page, 'review');
+  await expect(page.locator('#linear-section-review')).toHaveAttribute('data-review-layout', 'table');
+  const dimensions = await page.evaluate(() => {
+    const wrap = document.querySelector('#linear-mount-review .activity-table-wrap');
+    return {
+      viewport: document.documentElement.clientWidth,
+      pageWidth: document.documentElement.scrollWidth,
+      client: wrap.clientWidth,
+      scroll: wrap.scrollWidth
+    };
+  });
+  expect(dimensions.pageWidth - dimensions.viewport).toBeLessThanOrEqual(1);
+  expect(dimensions.scroll).toBeGreaterThan(dimensions.client);
+  await page.locator('[data-linear-review-view="list"]').click();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });
 
 test('real visible upload stays on Home without phantom edits or completed sections', async ({ page }) => {

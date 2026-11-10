@@ -1,5 +1,13 @@
 # Changelog
 
+## 7.3.2 - 2026-11-10
+
+- Removed the redundant Word-workspace heading, descriptive sentence, and duplicate local-processing label.
+- Changed the review editor to an actual sortable, editable **table by default**, retaining all existing reviewer, date, comment, redline, selection, filtering, paging, and bulk-edit controls.
+- Added an accessible **Table view / List view** switch, with a compact version of the existing cards for List view. Switching displays does not reset working document edits.
+- Tightened checkbox, tracked-change badge, and change-type spacing in List view, and constrained the table to horizontal scrolling inside the review section on narrow screens.
+- Kept the existing editorial typography, browser-local processing, sidebar workflow, summary exports, PDF tools, and offline cache compatibility.
+
 ## 7.3.1 - 2026-11-09
 
 - Gave Comment Master a distinct editorial-workbench appearance: paper-toned surfaces, petrol controls, a copper annotation accent, fine dividers, restrained corner radii, and no decorative dashboard gradients.

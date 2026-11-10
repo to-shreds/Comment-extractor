@@ -49,7 +49,7 @@ async function openShell(page) {
   });
   await page.goto('/');
   await page.waitForFunction(() => (
-    window.CommentMasterWorkbench?.version === '7.3.1'
+    window.CommentMasterWorkbench?.version === '7.3.2'
     && typeof window.CommentMasterWord?.openFile === 'function'
   ));
   await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
@@ -194,10 +194,10 @@ test.describe('home and navigation', () => {
   test('desktop home presents one obvious file-first workflow', async ({ page }) => {
     await openShell(page);
 
-    await expect(page.getByRole('heading', { name: 'Work on your document.' })).toBeVisible();
+    await expect(page.locator('.linear-heading')).toHaveCount(0);
     await expect(page.locator('#linear-file-drop')).toContainText('Choose a Word document');
     await expect(page.getByRole('button', { name: 'Choose Word document' })).toBeVisible();
-    await expect(page.locator('.linear-local')).toContainText('Processed on this device');
+    await expect(page.getByRole('button', { name: 'Local processing' })).toBeVisible();
     await expect(page.locator('#linear-download-summary')).toBeDisabled();
     await expect(page.locator('.linear-other-tools summary').first()).toBeVisible();
     await expect(page.locator('.linear-other-tools > div').first()).toBeHidden();
@@ -641,7 +641,7 @@ test.describe('privacy and offline behavior', () => {
     if (!await page.evaluate(() => Boolean(navigator.serviceWorker.controller))) {
       await page.reload();
       await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
-      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.3.1');
+      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.3.2');
     }
 
     const cacheReport = await page.evaluate(async () => {
@@ -672,9 +672,9 @@ test.describe('privacy and offline behavior', () => {
     await context.setOffline(true);
     try {
       await page.reload({ waitUntil: 'domcontentloaded' });
-      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.3.1');
+      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.3.2');
       await expect(page.locator('#home')).toBeVisible();
-      await expect(page.getByRole('heading', { name: 'Work on your document.' })).toBeVisible();
+      await expect(page.locator('.linear-heading')).toHaveCount(0);
     } finally {
       await context.setOffline(false);
     }

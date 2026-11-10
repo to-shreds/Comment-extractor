@@ -1,4 +1,4 @@
-import { SUMMARY_COLUMNS, buildReviewSummary, summaryRows } from './review-summary.mjs?v=7.3.1';
+import { SUMMARY_COLUMNS, buildReviewSummary, summaryRows } from './review-summary.mjs?v=7.3.2';
 
 const $ = (id) => document.getElementById(id);
 const esc = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -19,7 +19,7 @@ const feedback = (key) => `<p id="linear-${key}-feedback" class="linear-feedback
 const mount = (key) => `<div id="linear-mount-${key}" class="linear-mount"></div>`;
 function section(key, content) {
   const index = SECTIONS.findIndex((s) => s[0] === key), [, title, description] = SECTIONS[index];
-  return `<details id="linear-section-${key}" class="linear-section" data-linear-section="${key}"${key === 'file' ? ' open' : ''}>
+  return `<details id="linear-section-${key}" class="linear-section" data-linear-section="${key}"${key === 'review' ? ' data-review-layout="table"' : ''}${key === 'file' ? ' open' : ''}>
     <summary><span class="linear-step">${String(index + 1).padStart(2, '0')}</span><span class="linear-section-copy"><strong>${title}</strong><span>${description}</span></span><span class="linear-status" data-status-for="${key}">${key === 'file' ? 'Not loaded' : 'Not used'}</span></summary>
     <div class="linear-section-body">${key === 'file' ? content : `<p class="linear-load-first" data-load-first>Load a document above to use this section.</p><fieldset class="linear-fields" data-needs-document disabled>${content}</fieldset>`}</div></details>`;
 }
@@ -34,11 +34,10 @@ function template() {
       <div class="linear-sidebar-footer"><button type="button" data-wb-action="privacy">Privacy and offline use</button><button type="button" data-linear-action="clear">Clear local workspace</button></div></div>
     </aside>
     <div class="linear-content">
-      <header class="linear-heading"><div><p class="linear-eyebrow">DOCUMENT WORKSPACE</p><h2>Work on your document.</h2><p>Open a Word file, use the sections you need, and download your results.</p></div><span class="linear-local"><span aria-hidden="true"></span>Processed on this device</span></header>
       <div id="linear-document-bar" class="linear-document-bar" hidden><div><strong id="linear-filename"></strong><span id="linear-document-counts"></span></div><div class="linear-document-controls"><span id="linear-save-status" role="status" aria-live="polite"></span><button type="button" id="linear-undo" class="btn btn-light" data-linear-action="undo" disabled>Undo last edit</button></div></div>
       ${section('file', `<div id="linear-file-drop" class="linear-file-drop"><div class="linear-file-symbol" aria-hidden="true">W</div><div><h3>Choose a Word document</h3><p>Use a .docx file or drop it here. Your original file will not be overwritten.</p></div><button id="linear-upload" class="btn btn-primary" type="button" data-wb-action="choose-home-word">Choose Word document</button></div><p id="linear-file-ready" hidden></p>${feedback('file')}<div id="linear-multiple-files" hidden><p>Multiple files selected. Choose a tool below.</p><div id="linear-file-chips"></div><div id="linear-file-suggestions"></div></div>`)}
       ${section('names', `<div class="linear-form-grid"><label>Current name<select id="linear-name-from"></select></label><label>New name<input id="linear-name-to" maxlength="255" autocomplete="off" placeholder="Enter the replacement name"></label>${scope('linear-name-scope')}</div><p id="linear-name-count" class="linear-help"></p><button class="btn btn-primary" type="button" data-linear-action="names">Apply name change</button>${feedback('names')}`)}
-      ${section('review', `<p class="linear-help">Click a name, date, comment, or redlined text to edit it. Changes apply when you leave that field. Formatting-only revisions are read-only.</p><div class="linear-review-filters"><label>Find a review item<input id="linear-review-search" type="search" placeholder="Search text or reviewer names"></label><label>Show<select id="linear-review-type"><option value="all">Comments and redlines</option><option value="comments">Comments only</option><option value="redlines">Redlines only</option></select></label></div>${mount('review')}${feedback('review')}`)}
+      ${section('review', `<p class="linear-help">Click a name, date, comment, or redlined text to edit it. Changes apply when you leave that field. Formatting-only revisions are read-only.</p><div class="linear-review-filters"><label>Find a review item<input id="linear-review-search" type="search" placeholder="Search text or reviewer names"></label><label>Show<select id="linear-review-type"><option value="all">Comments and redlines</option><option value="comments">Comments only</option><option value="redlines">Redlines only</option></select></label></div><div class="linear-review-display"><p id="linear-review-view-hint" class="linear-review-hint">Select a column heading to sort. Edit names, dates, and review language directly in the table.</p><div class="linear-review-view-switch" role="group" aria-label="Review display"><button type="button" data-linear-review-view="table" aria-pressed="true">Table view</button><button type="button" data-linear-review-view="list" aria-pressed="false">List view</button></div></div>${mount('review')}${feedback('review')}`)}
       ${section('times', `<div class="linear-form-grid">${scope('linear-time-scope')}<label>Reviewer<select id="linear-time-author"></select></label><label>What to do<select id="linear-time-mode"><option value="set">Set a date and time</option><option value="clear">Remove dates and times</option><option value="shift">Shift existing times</option><option value="sequence">Set times in document order</option><option value="random">Randomize within a range</option></select></label><label id="linear-time-date-wrap">Date and time<input id="linear-time-date" type="datetime-local" step="1"></label><label id="linear-time-minutes-wrap" hidden>Minutes (negative moves earlier)<input id="linear-time-minutes" type="number" value="5" step="0.1"></label><label id="linear-time-end-wrap" hidden>End of range<input id="linear-time-end" type="datetime-local" step="1"></label></div><label class="linear-check" id="linear-time-ordered-wrap" hidden><input id="linear-time-ordered" type="checkbox" checked>Keep generated times in document order</label><p class="linear-help">Dates entered here use your device’s time zone. Comments and redlines remain in the document.</p><button class="btn btn-primary" type="button" data-linear-action="times">Apply date changes</button>${feedback('times')}`)}
       ${section('metadata', `<p>Remove the document creator, last editor, created/modified dates, revision number, and total editing time.</p><p class="linear-help">Reviewer names, comment dates, tracked changes, and document text are kept. Custom properties and embedded content can be reviewed under Create a clean Word copy.</p><button class="btn btn-primary" type="button" data-linear-action="metadata">Remove common metadata</button>${feedback('metadata')}<details class="linear-subsection" data-linear-mount="metadata"><summary>View or edit individual properties</summary>${mount('metadata')}</details>`)}
       ${section('find', mount('find'))}
@@ -82,6 +81,18 @@ export function initLinearWorkspace(api) {
     if(scroll)target.scrollIntoView({behavior:'auto',block:'start'});
     const heading=target.querySelector('summary,h3');heading?.focus({preventScroll:true});
   }
+  function setReviewLayout(mode) {
+    const layout = mode === 'list' ? 'list' : 'table';
+    $('linear-section-review').dataset.reviewLayout = layout;
+    document.querySelectorAll('[data-linear-review-view]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.linearReviewView === layout));
+    });
+    $('linear-review-view-hint').textContent = layout === 'table'
+      ? 'Select a column heading to sort. Edit names, dates, and review language directly in the table.'
+      : 'Each change appears as a card. Edit names, dates, and review language directly in the cards.';
+    $('linear-mount-review').querySelector('.activity-table-wrap')?.setAttribute('aria-label',
+      layout === 'table' ? 'Sortable review activity table' : 'Review activity list');
+  }
   function embed(key) {
     const entry=panelHomes.get(key), destination=$(`linear-mount-${key}`);if(!entry||!destination||!info())return;
     const [,tab]=EMBEDDED[key];
@@ -104,7 +115,7 @@ export function initLinearWorkspace(api) {
     $('linear-name-to').value='';$('linear-name-from').replaceChildren();$('linear-time-author').replaceChildren();$('linear-name-from').dataset.options='';$('linear-time-author').dataset.options='';summaryError='';
     $('linear-name-scope').value='all';$('linear-time-scope').value='all';$('linear-time-mode').value='set';
     $('linear-time-date').value='';$('linear-time-end').value='';$('linear-time-minutes').value='5';
-    $('linear-review-search').value='';$('linear-review-type').value='all';$('linear-summary-form').reset();
+    $('linear-review-search').value='';$('linear-review-type').value='all';setReviewLayout('table');$('linear-summary-form').reset();
     document.querySelectorAll('.linear-feedback').forEach((p)=>{p.textContent='';p.hidden=true;});
     document.querySelectorAll('[data-linear-section]').forEach((d)=>{d.open=d.dataset.linearSection===(next?'names':'file');});
     document.querySelectorAll('[data-linear-mount]').forEach((d)=>{d.open=false;});
@@ -188,6 +199,8 @@ export function initLinearWorkspace(api) {
     finally{localBusy=false;refresh();}
   }
   home.addEventListener('click',(event)=>{
+    const layoutButton = event.target.closest('[data-linear-review-view]');
+    if (layoutButton) { setReviewLayout(layoutButton.dataset.linearReviewView); return; }
     const jump=event.target.closest('[data-linear-jump]');if(jump){choose(jump.dataset.linearJump);return;}
     const action=event.target.closest('[data-linear-action]');if(action){void execute(action.dataset.linearAction);return;}
     const pdf=event.target.closest('[data-linear-pdf]');if(pdf){markExtra(`pdf-${pdf.dataset.linearPdf}`);api.switchRoute('pdf');api.switchPdfTab(pdf.dataset.linearPdf);return;}
@@ -228,6 +241,6 @@ export function initLinearWorkspace(api) {
   // Existing error handling remains authoritative. Surface its message near the file picker.
   new MutationObserver(()=>{if(!$('error-log').hidden&&currentRoute()==='home'){const key=document.activeElement?.closest('[data-linear-section]')?.dataset.linearSection||'file';status(key,$('error-log').textContent,true);$(`linear-section-${key}`).open=true;}}).observe($('error-log'),{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
   new MutationObserver(()=>{const message=$('status').textContent;if(currentRoute()==='home'&&message&&info()){const key=document.activeElement?.closest('[data-linear-section]')?.dataset.linearSection;if(key)status(key,message,$('status').classList.contains('bad'));}}).observe($('status'),{childList:true,subtree:true});
-  window.CommentMasterLinear=Object.freeze({refresh,choose,summaryOptions,version:'7.3.1'});
+  window.CommentMasterLinear=Object.freeze({refresh,choose,summaryOptions,version:'7.3.2'});
   refresh();updateTimeFields();
 }

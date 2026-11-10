@@ -7,7 +7,7 @@ test('editorial workbench is local, readable, and uses the unified visual system
     if (!['localhost', '127.0.0.1'].includes(url.hostname)) outside.push(request.url());
   });
   await page.goto('/');
-  await page.waitForFunction(() => window.CommentMasterLinear?.version === '7.3.1');
+  await page.waitForFunction(() => window.CommentMasterLinear?.version === '7.3.2');
   await expect(page.locator('#linear-section-file')).toBeVisible();
   await expect(page.locator('.linear-sidebar')).toBeVisible();
   await expect(page.locator('#linear-download-grid, .linear-download-grid').first()).toBeVisible();
@@ -22,7 +22,7 @@ test('editorial workbench is local, readable, and uses the unified visual system
     return {
       fonts: fontSamples.map((sample) => sample.length),
       page: getComputedStyle(document.body).backgroundColor,
-      heading: getComputedStyle(document.querySelector('.linear-heading h2')).fontFamily,
+      heading: getComputedStyle(document.querySelector('#linear-download-title')).fontFamily,
       headerImage: getComputedStyle(document.querySelector('.app-header')).backgroundImage,
       corner: getComputedStyle(document.querySelector('.linear-section')).borderRadius
     };
@@ -37,7 +37,7 @@ test('editorial workbench is local, readable, and uses the unified visual system
 
 test('editorial workflow and exports fit phone, tablet, and desktop widths', async ({ page }) => {
   await page.goto('/');
-  await page.waitForFunction(() => window.CommentMasterLinear?.version === '7.3.1');
+  await page.waitForFunction(() => window.CommentMasterLinear?.version === '7.3.2');
   for (const width of [320, 390, 768, 1280]) {
     await page.setViewportSize({ width, height: 860 });
     const sizes = await page.evaluate(() => ({
