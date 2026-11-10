@@ -51,7 +51,7 @@ function installDomCompatibility() {
 
 function testStaticContract() {
   scripts.forEach((script, index) => assert.doesNotThrow(() => new Function(script), `Script ${index + 1} has invalid JavaScript`));
-  assert.match(html, /<title>Comment Master v7\.3\.1<\/title>/);
+  assert.match(html, /<title>Comment Master v7\.3\.2<\/title>/);
   assert.match(html, /data-action="openCompare"/);
   assert.match(html, /data-action="compareDocuments"/);
   assert.match(html, /data-action="compareText"/);
