@@ -49,7 +49,7 @@ async function openShell(page) {
   });
   await page.goto('/');
   await page.waitForFunction(() => (
-    window.CommentMasterWorkbench?.version === '7.3.1'
+    window.CommentMasterWorkbench?.version === '7.3.2'
     && typeof window.CommentMasterWord?.openFile === 'function'
   ));
   await expect(page.locator('body')).toHaveAttribute('data-route', 'home');
@@ -641,7 +641,7 @@ test.describe('privacy and offline behavior', () => {
     if (!await page.evaluate(() => Boolean(navigator.serviceWorker.controller))) {
       await page.reload();
       await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
-      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.3.1');
+      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.3.2');
     }
 
     const cacheReport = await page.evaluate(async () => {
@@ -672,7 +672,7 @@ test.describe('privacy and offline behavior', () => {
     await context.setOffline(true);
     try {
       await page.reload({ waitUntil: 'domcontentloaded' });
-      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.3.1');
+      await page.waitForFunction(() => window.CommentMasterWorkbench?.version === '7.3.2');
       await expect(page.locator('#home')).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Work on your document.' })).toBeVisible();
     } finally {
