@@ -2,39 +2,41 @@
 
 ## Current state
 
-**READY.** Comment Master v7.3.1 is published at https://to-shreds.github.io/Comment-extractor/. The canonical source is `to-shreds/Comment-extractor` on `main`. The editorial visual redesign is complete and verified, building on the v7.3.0 linear Word workflow rather than replacing it.
+**READY.** Comment Master v7.3.2 is published at https://to-shreds.github.io/Comment-extractor/. The canonical source is `to-shreds/Comment-extractor` on `main`. This release makes the Word comments/redlines editor a proper sortable table by default, retains optional List view, and removes the redundant Home introduction.
 
-- Release code merge: `295482e531a2c013135a66421de26174698f33ef` (PR https://github.com/to-shreds/Comment-extractor/pull/6).
-- Runtime version: `7.3.1`, manifest build ID `373d00a00a7d9ffb85226dd4`.
-- Full QA: https://github.com/to-shreds/Comment-extractor/actions/runs/42703810452, success.
-- Pages publication: https://github.com/to-shreds/Comment-extractor/actions/runs/42704301246, success.
-- Previous working release: v7.3.0, main commit `0311ecce52aac3729a78b2e6a1f8ab8a12a16a35`, preserved in Git history.
+- Release pull request: https://github.com/to-shreds/Comment-extractor/pull/7
+- Published code merge: `d87ec5d4440bf4b9622d29335b4c31bcc4cea833`.
+- Runtime version: `7.3.2`; build ID `45ae1f6a10691ccfc91ada24`.
+- Full QA: https://github.com/to-shreds/Comment-extractor/actions/runs/42834630112, success.
+- GitHub Pages: https://github.com/to-shreds/Comment-extractor/actions/runs/42835355603, success.
+- Previous known-good release: v7.3.1, `adc6f0f7bac3e1201badea44ccc313e711a346f2`.
 
 ## What changed
 
-- Replaced generic blue gradients, pill-heavy badges, rounded dashboard cards, and shadows with a warm paper / charcoal / petrol / copper editorial system.
-- Applied Source Serif 4 to primary headings, IBM Plex Sans to controls and body text, and IBM Plex Mono to metadata and technical labels.
-- Created an understated annotation-inspired brand mark and consistent appearance for Word, PDF, comparison, batch tools, dialogs, review rows, tables, and mobile layouts.
-- Updated a few vague UI labels, retaining familiar green insertions and red deletions.
-- Bundled six checksum-verified OFL-licensed fonts under `assets/fonts`. The runtime never loads fonts from remote services. The font files are explicit core service-worker assets, available offline.
-- Preserved nine collapsible Word sections, the left workflow sidebar, its accurate edit/undo status, and the two final Word/report downloads.
+- Removed "Work on your document.", its explanatory sentence, and the redundant "Processed on this device" callout. Kept the `Local processing` control in the application header.
+- The comment/redline review opens in a real editable, sortable table, with visible column headers for page, change type, reviewed language/comment, reviewer name, and date/time. Existing filters, selection, paging, and bulk tools still use the same Word editing engine.
+- Added accessible `Table view` and `List view` controls. The list preserves card-style editing, with tighter spacing and aligned checkbox, tracked-change badge and change label. Switching views does not reset edits.
+- The table scrolls inside the review panel on narrow screens rather than expanding the whole page.
+- Reduced top padding after removing the introduction. Kept the paper/petrol/copper editorial visual theme and bundled local fonts.
+- Updated versioned CSS/JS and offline runtime to 7.3.2 to avoid the earlier stale-cache nonresponsive-upload bug.
+- All other Word, PDF, inspection, comparison, appendix, batch and two-download workflows remain intact.
 
 ## Verification
 
-- Both legacy regression suites passed; 57 unit tests, 5 privacy/offline tests, and all 63 Chromium tests passed.
-- Browser tests include typography/font loading, no third-party font requests, 320/390/768/1280px overflow checks, PDF on mobile, Word upload/edit/undo, original-package preservation, document comparison, report options, and offline behavior.
-- `npm run build:pages` generated and synchronized the exact Pages assets and manifest. Manifest and six bundled font files were independently checked on `main`.
-- GitHub Pages completed the release deployment successfully.
+The full GitHub Actions release gate passed with both legacy Word regression suites, 57 Node unit tests, 5 privacy/offline tests, and **all 66 Chromium browser tests**, including 3 new tests for no redundant headings, sortable default table/list toggling with preserved inline edits, compact list spacing, and mobile horizontal scrolling. Existing Word/PDF/summary/offline regressions passed.
+
+`npm run build:pages` completed and synchronized the committed GitHub Pages runtime; the root manifest reports v7.3.2 and build ID `45ae1f6a10691ccfc91ada24`. GitHub Pages deployment for merge commit `d87ec5d4440bf4b9622d29335b4c31bcc4cea833` completed successfully.
 
 ## Do not break
 
-- Process documents entirely inside the browser. No uploads, telemetry, remote document handling, or persistent document storage.
-- Preserve the current working Word document across multiple edits and downloads. Never overwrite an uploaded source or force a download between tasks.
-- Keep the linear sidebar and collapsible sections; distinguish applying edits from viewing sections, and restore status on Undo.
-- Both final downloads use current working data. For the optional source-document appendix, preserve package contents, and refuse unsupported signed/complex-section inputs rather than flattening them.
-- Retain all PDF and specialist tools, redline color semantics, keyboard focus, responsive layouts, and offline support.
-- Maintain versioned CSS/JS import URLs, the service-worker core allowlist, and the six bundled fonts. Run `npm run fonts:install`, `npm run qa`, and `npm run build:pages` for future releases.
+- Keep all documents in the browser. Do not introduce uploads, telemetry or persistent document storage.
+- Keep the nine collapsible Word sections, left workflow sidebar with applied/viewed status, Undo, and both final downloads.
+- Keep the same in-memory editing engine when switching Table/List view; never overwrite the original file or force downloads between changes.
+- Export reports from current edited document state. Preserve source OOXML parts when adding a document appendix and fail closed on unsupported structures.
+- Preserve all PDF functionality, specialist tools, privacy and offline support.
+- Keep every release's app asset URLs versioned and verify the service-worker cache allowlist.
+- Run `npm run fonts:install`, `npm run qa`, and `npm run build:pages` for future releases. QA must exercise the visible file picker, sorting, inline edit persistence, mobile overflow, and Word/PDF/offline operations.
 
 ## Next action
 
-The redesign is ready to use. Collect practical feedback about readability and efficiency from real document work; no known release blockers remain. Existing Word/PDF structural limits remain documented in `README.md`.
+The requested changes are ready. Gather practical feedback while using the new table. Existing Office/PDF structure, conversion, appendix pagination, and English-only OCR limitations remain documented in `README.md`.
