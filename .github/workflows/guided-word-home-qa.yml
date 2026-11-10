@@ -1,9 +1,9 @@
-name: Comment Master v7.3.1 Editorial QA
+name: Comment Master v7.3.2 Review Table QA
 
 on:
   push:
     branches:
-      - design/editorial-workbench-v7.3.1
+      - fix/review-table-default-v7.3.2
   workflow_dispatch:
 
 permissions:
@@ -37,6 +37,6 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -- src/fonts assets asset-manifest.json service-worker.js
           if ! git diff --cached --quiet; then
-            git commit -m "Sync verified editorial workbench runtime [skip ci]"
+            git commit -m "Sync verified v7.3.2 review table runtime [skip ci]"
             git push origin HEAD:"${GITHUB_REF_NAME}"
           fi
